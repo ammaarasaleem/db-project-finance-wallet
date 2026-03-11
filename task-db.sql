@@ -1,4 +1,8 @@
+create database taskDB
+go
+
 use taskDB
+go
 
 CREATE TABLE Tasks (
     id INT IDENTITY(1,1) PRIMARY KEY,
@@ -7,9 +11,6 @@ CREATE TABLE Tasks (
     created_at DATETIME DEFAULT GETDATE()
 );
 
-UPDATE Tasks SET title = 'abc', description = 'hello' WHERE id = 2
-
-
 INSERT INTO Tasks (title, description) VALUES
 ('Fix Backend Bug', 'Resolve the API response issue for task updates.'),
 ('Design UI Mockups', 'Create wireframes for the dashboard redesign.'),
@@ -17,7 +18,7 @@ INSERT INTO Tasks (title, description) VALUES
 ('Write Documentation', 'Complete API documentation for task endpoints.'),
 ('Team Meeting', 'Discuss sprint progress and upcoming milestones.');
 
-
+go
 CREATE PROCEDURE CreateTask
     @title NVARCHAR(255),
     @description NVARCHAR(255)
@@ -26,20 +27,5 @@ BEGIN
     INSERT INTO tasks (title, description) VALUES (@title, @description);
 END
 
-drop proc CreateTask
-
-SELECT * FROM Tasks
-
-delete from Tasks where id>6
-
-
-EXEC CreateTask 'Test Title', 'Test Description';
-
-
 
 ALTER AUTHORIZATION ON DATABASE::taskDb TO sa;
-
-
-
-
-

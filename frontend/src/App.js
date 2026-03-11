@@ -1,24 +1,10 @@
-import React, {useState, useEffect} from 'react';
-import TaskList from './components/TaskList';
-import TaskForm from './components/TaskForm';
+import React from 'react';
+import Home from './pages/Home/Home';
 
-function App(){
-
-  const[message, setMessage]=useState('');
-
-  useEffect(()=>{
-    fetch('http://localhost:5000')
-    .then((response)=>response.text())
-    .then((data)=>setMessage(data));
-  },[]);
-
-  return(
-    <div style={{textAlign: 'center',marginTop: '50px'}}>
-      <h1>React Frontend</h1>
-      <p>{message}</p>
-      <h1>Task Management</h1>
-      <TaskForm />
-      <TaskList />
+function App() {
+  return (
+    <div className="App">
+      <Home />
     </div>
   );
 }
