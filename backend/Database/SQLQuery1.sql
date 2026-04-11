@@ -1,16 +1,9 @@
--- ============================================================
---  FinTrack Finance Wallet  |  Enhanced Database Schema
---  Includes: Schema fixes, Triggers, Views, Stored Procedures
--- ============================================================
 
 CREATE DATABASE finance_wallet;
 GO
 USE finance_wallet;
 GO
 
--- ============================================================
---  TABLES
--- ============================================================
 
 CREATE TABLE Users (
     user_id       INT            PRIMARY KEY IDENTITY(1,1),
@@ -183,9 +176,6 @@ CREATE TABLE FixedExpenses (
 GO
 
 
--- ============================================================
---  TRIGGERS  (3 total)
--- ============================================================
 
 -- TRIGGER 1 (existing, kept): Auto-update Wallets.updated_at on balance change
 CREATE TRIGGER trg_Wallets_UpdateUpdatedAt
@@ -251,9 +241,6 @@ END;
 GO
 
 
--- ============================================================
---  VIEWS  (6 total)
--- ============================================================
 
 -- VIEW 1: Full user wallet summary (used by dashboard)
 CREATE VIEW vw_UserWalletSummary AS
@@ -270,7 +257,6 @@ JOIN Wallets w ON u.user_id = w.user_id
 WHERE u.is_active = 1;
 GO
 
--- VIEW 2: All active loans with lender/borrower names and remaining amount
 CREATE VIEW vw_ActiveLoans AS
 SELECT
     l.loan_id,
@@ -292,7 +278,6 @@ JOIN Users borrower ON l.borrower_id = borrower.user_id
 WHERE l.status IN ('active', 'requested');
 GO
 
--- VIEW 3: Unpaid bill split shares across all users
 CREATE VIEW vw_UnpaidBillShares AS
 SELECT
     bsp.participant_id,
@@ -309,7 +294,6 @@ JOIN Users creator   ON creator.user_id = bs.created_by
 WHERE bsp.is_paid = 0;
 GO
 
--- VIEW 4: Khata group overview — members, total collected, next payout
 CREATE VIEW vw_KhataGroupOverview AS
 SELECT
     kg.Id                                                    AS group_id,
@@ -330,7 +314,6 @@ GROUP BY kg.Id, kg.Name, creator.username,
          kg.StartDate, kg.IsActive;
 GO
 
--- VIEW 5: Saving vault progress for all users
 CREATE VIEW vw_VaultProgress AS
 SELECT
     sv.id                                                           AS vault_id,
@@ -348,7 +331,6 @@ FROM savingVault sv
 JOIN Users u ON sv.userID = u.user_id;
 GO
 
--- VIEW 6: Per-user financial health snapshot
 CREATE VIEW vw_FinancialHealth AS
 SELECT
     u.user_id,
@@ -381,9 +363,6 @@ WHERE u.is_active = 1;
 GO
 
 
--- ============================================================
---  STORED PROCEDURES  (8 total)
--- ============================================================
 
 -- SP 1: Register a new user and auto-create their wallet
 CREATE PROCEDURE sp_RegisterUser
@@ -417,7 +396,6 @@ BEGIN
 END;
 GO
 
--- SP 2: Transfer money between two wallets safely
 CREATE PROCEDURE sp_TransferMoney
     @sender_id   INT,
     @receiver_id INT,
@@ -466,7 +444,6 @@ BEGIN
 END;
 GO
 
--- SP 3: Approve a loan request — transfers money from lender to borrower
 CREATE PROCEDURE sp_ApproveLoan
     @loan_id   INT,
     @lender_id INT
@@ -496,7 +473,6 @@ BEGIN
             ROLLBACK; RETURN;
         END
 
-        -- Check lender balance
         DECLARE @lender_balance DECIMAL(12,2);
         SELECT @lender_balance = balance FROM Wallets WHERE user_id = @lender_id;
 
@@ -523,7 +499,6 @@ BEGIN
 END;
 GO
 
--- SP 4: Repay a loan (partial or full)
 CREATE PROCEDURE sp_RepayLoan
     @loan_id     INT,
     @borrower_id INT,
@@ -581,7 +556,6 @@ BEGIN
 END;
 GO
 
--- SP 5: Create a bill split with participants in one call
 CREATE PROCEDURE sp_CreateBillSplit
     @created_by   INT,
     @total_amount DECIMAL(12,2),
@@ -597,7 +571,6 @@ BEGIN
 END;
 GO
 
--- SP 6: Pay a bill share — deducts wallet and records transaction
 CREATE PROCEDURE sp_PayBillShare
     @split_id INT,
     @user_id  INT
@@ -652,7 +625,6 @@ BEGIN
 END;
 GO
 
--- SP 7: Deposit to saving vault — deducts from wallet
 CREATE PROCEDURE sp_DepositToVault
     @vault_id INT,
     @user_id  INT,
@@ -700,7 +672,6 @@ BEGIN
 END;
 GO
 
--- SP 8: Get full financial report for a user (used for dashboard/overview)
 CREATE PROCEDURE sp_GetUserFinancialReport
     @user_id INT
 AS
@@ -744,10 +715,6 @@ BEGIN
 END;
 GO
 
-
--- ============================================================
---  SEED DATA
--- ============================================================
 
 INSERT INTO Users (username, email, phone, password_hash) VALUES
     ('alice',   'alice@email.com',   '555-0101', 'hashed_pw_1'),
@@ -828,10 +795,6 @@ INSERT INTO savingVault (userID, user_Name, targetAmount, savedAmount, deadline)
     (3, 'New Laptop',     1500.00, 900.00, '2026-07-01');
 GO
 
-
--- ============================================================
---  USEFUL QUERIES  (for testing / Postman screenshots)
--- ============================================================
 
 -- Q1: Use wallet summary view
 SELECT * FROM vw_UserWalletSummary;
