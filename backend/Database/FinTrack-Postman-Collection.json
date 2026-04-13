@@ -1,0 +1,610 @@
+{
+  "info": {
+    "name": "FinTrack API — Complete Collection",
+    "description": "FinTrack Finance Management System — All API endpoints with auto-token saving.\n\n📌 SETUP:\n1. Set base_url variable to http://localhost:5000/api\n2. Run 'Register' or 'Login' first — token saves automatically\n3. All other requests use {{token}} automatically\n\n👥 Test Users (after running SQLQuery_Enhanced.sql seed data):\n- Register fresh users via /auth/register for bcrypt-hashed passwords",
+    "_postman_id": "fintrack-api-2024-v2",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:5000/api", "type": "string", "description": "Base URL — change port if needed" },
+    { "key": "token",    "value": "", "type": "string", "description": "JWT token — auto-filled after Login" },
+    { "key": "user_id",  "value": "", "type": "string", "description": "Auto-filled after Login" }
+  ],
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "description": "User registration, login, and profile management",
+      "item": [
+        {
+          "name": "1. Register New User",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const res = pm.response.json();",
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Has token', () => pm.expect(res.data).to.have.property('token'));",
+            "if (res.data && res.data.token) {",
+            "  pm.collectionVariables.set('token', res.data.token);",
+            "  pm.collectionVariables.set('user_id', res.data.user_id);",
+            "  console.log('✅ Token saved for:', res.data.username);",
+            "}"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"testuser@email.com\",\n  \"password\": \"password123\",\n  \"phone\": \"555-9999\"\n}" },
+            "url": { "raw": "{{base_url}}/auth/register", "host": ["{{base_url}}"], "path": ["auth","register"] },
+            "description": "Creates a new user account and auto-creates a wallet. Token is saved automatically."
+          }
+        },
+        {
+          "name": "2. Login",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const res = pm.response.json();",
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Login successful', () => pm.expect(res.success).to.be.true);",
+            "if (res.data && res.data.token) {",
+            "  pm.collectionVariables.set('token', res.data.token);",
+            "  pm.collectionVariables.set('user_id', res.data.user_id);",
+            "  console.log('✅ Logged in as:', res.data.username);",
+            "}"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"testuser@email.com\",\n  \"password\": \"password123\"\n}" },
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth","login"] },
+            "description": "Login and get JWT token. Token is automatically saved to collection variables."
+          }
+        },
+        {
+          "name": "3. Get My Profile",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has user data', () => pm.expect(pm.response.json().data).to.have.property('username'));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/auth/me", "host": ["{{base_url}}"], "path": ["auth","me"] },
+            "description": "Returns logged-in user profile with wallet balance."
+          }
+        },
+        {
+          "name": "4. Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"current_password\": \"password123\",\n  \"new_password\": \"newpassword456\"\n}" },
+            "url": { "raw": "{{base_url}}/auth/change-password", "host": ["{{base_url}}"], "path": ["auth","change-password"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💰 Wallet",
+      "description": "Wallet balance, deposits, transfers, and transaction history",
+      "item": [
+        {
+          "name": "1. Get My Wallet",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has balance', () => pm.expect(pm.response.json().data).to.have.property('balance'));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/wallet", "host": ["{{base_url}}"], "path": ["wallet"] }
+          }
+        },
+        {
+          "name": "2. Get Financial Summary",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/wallet/summary", "host": ["{{base_url}}"], "path": ["wallet","summary"] },
+            "description": "Total sent, received, expenses, and salary in one call."
+          }
+        },
+        {
+          "name": "3. Deposit Money",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Deposit successful', () => pm.expect(pm.response.json().success).to.be.true);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 1000.00\n}" },
+            "url": { "raw": "{{base_url}}/wallet/deposit", "host": ["{{base_url}}"], "path": ["wallet","deposit"] }
+          }
+        },
+        {
+          "name": "4. Transfer Money",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Transfer successful', () => pm.expect(pm.response.json().success).to.be.true);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"receiver_username\": \"alice\",\n  \"amount\": 50.00,\n  \"note\": \"Paying back for coffee\"\n}" },
+            "url": { "raw": "{{base_url}}/wallet/transfer", "host": ["{{base_url}}"], "path": ["wallet","transfer"] }
+          }
+        },
+        {
+          "name": "5. Transaction History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/wallet/transactions?limit=10&offset=0",
+              "host": ["{{base_url}}"], "path": ["wallet","transactions"],
+              "query": [
+                { "key": "limit", "value": "10" },
+                { "key": "offset", "value": "0" },
+                { "key": "type", "value": "transfer", "disabled": true, "description": "Filter: transfer | bill_split | loan | loan_repayment" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Friends",
+      "description": "Friend requests, accept, block, and remove",
+      "item": [
+        {
+          "name": "1. Send Friend Request",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Request sent', () => pm.expect(pm.response.json().success).to.be.true);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"friend_username\": \"alice\"\n}" },
+            "url": { "raw": "{{base_url}}/friends/request", "host": ["{{base_url}}"], "path": ["friends","request"] }
+          }
+        },
+        {
+          "name": "2. Get Pending Requests",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/friends/pending", "host": ["{{base_url}}"], "path": ["friends","pending"] }
+          }
+        },
+        {
+          "name": "3. Accept Friend Request",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/friends/1/accept", "host": ["{{base_url}}"], "path": ["friends","1","accept"] }
+          }
+        },
+        {
+          "name": "4. Get All Friends",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/friends", "host": ["{{base_url}}"], "path": ["friends"] }
+          }
+        },
+        {
+          "name": "5. Block User",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/friends/1/block", "host": ["{{base_url}}"], "path": ["friends","1","block"] }
+          }
+        },
+        {
+          "name": "6. Remove Friend",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/friends/1", "host": ["{{base_url}}"], "path": ["friends","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏦 Loans",
+      "description": "Loan request, approval, rejection, and repayment",
+      "item": [
+        {
+          "name": "1. Request a Loan",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "const res = pm.response.json();",
+            "if (res.data && res.data.loan_id) pm.collectionVariables.set('loan_id', res.data.loan_id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"lender_username\": \"alice\",\n  \"amount\": 200.00,\n  \"due_date\": \"2026-08-01\",\n  \"note\": \"Need for car repair\"\n}" },
+            "url": { "raw": "{{base_url}}/loans/request", "host": ["{{base_url}}"], "path": ["loans","request"] }
+          }
+        },
+        {
+          "name": "2. Get All My Loans",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/loans",
+              "host": ["{{base_url}}"], "path": ["loans"],
+              "query": [{ "key": "status", "value": "active", "disabled": true }]
+            }
+          }
+        },
+        {
+          "name": "3. Approve Loan (as Lender)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/loans/1/approve", "host": ["{{base_url}}"], "path": ["loans","1","approve"] }
+          }
+        },
+        {
+          "name": "4. Repay Loan",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 100.00\n}" },
+            "url": { "raw": "{{base_url}}/loans/1/repay", "host": ["{{base_url}}"], "path": ["loans","1","repay"] }
+          }
+        },
+        {
+          "name": "5. Reject Loan",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/loans/1/reject", "host": ["{{base_url}}"], "path": ["loans","1","reject"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🧾 Bill Splits",
+      "description": "Create shared bills, add participants, and pay shares",
+      "item": [
+        {
+          "name": "1. Create Bill Split",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "const res = pm.response.json();",
+            "if (res.data && res.data.split_id) pm.collectionVariables.set('split_id', res.data.split_id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"total_amount\": 120.00,\n  \"description\": \"Team dinner at Roma\",\n  \"participants\": [\n    { \"username\": \"testuser\", \"amount_owed\": 30.00 },\n    { \"username\": \"alice\",    \"amount_owed\": 30.00 },\n    { \"username\": \"bob\",      \"amount_owed\": 30.00 },\n    { \"username\": \"charlie\",  \"amount_owed\": 30.00 }\n  ]\n}" },
+            "url": { "raw": "{{base_url}}/bills", "host": ["{{base_url}}"], "path": ["bills"] }
+          }
+        },
+        {
+          "name": "2. Get My Bills",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/bills", "host": ["{{base_url}}"], "path": ["bills"] }
+          }
+        },
+        {
+          "name": "3. Get Bill Details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/bills/1", "host": ["{{base_url}}"], "path": ["bills","1"] }
+          }
+        },
+        {
+          "name": "4. Pay My Share",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/bills/1/pay", "host": ["{{base_url}}"], "path": ["bills","1","pay"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔐 Saving Vaults",
+      "description": "Goal-based saving vaults — create, deposit, withdraw, delete",
+      "item": [
+        {
+          "name": "1. Create Vault",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "const res = pm.response.json();",
+            "if (res.data && res.data.vault_id) pm.collectionVariables.set('vault_id', res.data.vault_id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"vault_name\": \"Emergency Fund\",\n  \"targetAmount\": 1000.00,\n  \"deadline\": \"2026-12-01\"\n}" },
+            "url": { "raw": "{{base_url}}/vaults", "host": ["{{base_url}}"], "path": ["vaults"] }
+          }
+        },
+        {
+          "name": "2. Get My Vaults",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/vaults", "host": ["{{base_url}}"], "path": ["vaults"] }
+          }
+        },
+        {
+          "name": "3. Deposit to Vault",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 250.00\n}" },
+            "url": { "raw": "{{base_url}}/vaults/1/deposit", "host": ["{{base_url}}"], "path": ["vaults","1","deposit"] }
+          }
+        },
+        {
+          "name": "4. Withdraw from Vault",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 50.00\n}" },
+            "url": { "raw": "{{base_url}}/vaults/1/withdraw", "host": ["{{base_url}}"], "path": ["vaults","1","withdraw"] }
+          }
+        },
+        {
+          "name": "5. Delete Vault",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/vaults/1", "host": ["{{base_url}}"], "path": ["vaults","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🫙 Khata Groups",
+      "description": "Digital ballot committee management",
+      "item": [
+        {
+          "name": "1. Create Khata Group",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "const res = pm.response.json();",
+            "if (res.data && res.data.groupId) pm.collectionVariables.set('group_id', res.data.groupId);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Monthly Committee\",\n  \"contributionAmount\": 500.00,\n  \"cycleType\": \"Monthly\",\n  \"startDate\": \"2026-04-01\"\n}" },
+            "url": { "raw": "{{base_url}}/khata", "host": ["{{base_url}}"], "path": ["khata"] }
+          }
+        },
+        {
+          "name": "2. Get My Groups",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/khata", "host": ["{{base_url}}"], "path": ["khata"] }
+          }
+        },
+        {
+          "name": "3. Add Member to Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"alice\",\n  \"turnOrder\": 2\n}" },
+            "url": { "raw": "{{base_url}}/khata/1/members", "host": ["{{base_url}}"], "path": ["khata","1","members"] }
+          }
+        },
+        {
+          "name": "4. Get Group Members",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/khata/1/members?cycleNumber=1",
+              "host": ["{{base_url}}"], "path": ["khata","1","members"],
+              "query": [{ "key": "cycleNumber", "value": "1", "description": "Shows who has NOT paid this cycle" }]
+            }
+          }
+        },
+        {
+          "name": "5. Pay Contribution",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"cycleNumber\": 1\n}" },
+            "url": { "raw": "{{base_url}}/khata/1/contribute", "host": ["{{base_url}}"], "path": ["khata","1","contribute"] }
+          }
+        },
+        {
+          "name": "6. View Contributions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/khata/1/contributions", "host": ["{{base_url}}"], "path": ["khata","1","contributions"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Finance (Salary & Expenses)",
+      "description": "Fixed salary and expenses management, budget overview",
+      "item": [
+        {
+          "name": "1. Get Financial Overview",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has salary info', () => pm.expect(pm.response.json().data).to.have.property('salary'));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/finance/overview", "host": ["{{base_url}}"], "path": ["finance","overview"] },
+            "description": "Returns salary, expense breakdown, disposable income, and savings rate."
+          }
+        },
+        {
+          "name": "2. Set / Update Salary",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 3500.00,\n  \"currency\": \"USD\",\n  \"pay_day\": 1\n}" },
+            "url": { "raw": "{{base_url}}/finance/salary", "host": ["{{base_url}}"], "path": ["finance","salary"] }
+          }
+        },
+        {
+          "name": "3. Get My Salary",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/finance/salary", "host": ["{{base_url}}"], "path": ["finance","salary"] }
+          }
+        },
+        {
+          "name": "4. Add Fixed Expense",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Netflix\",\n  \"amount\": 15.00,\n  \"category\": \"Subscriptions\",\n  \"due_day\": 3\n}" },
+            "url": { "raw": "{{base_url}}/finance/expenses", "host": ["{{base_url}}"], "path": ["finance","expenses"] }
+          }
+        },
+        {
+          "name": "5. Get My Expenses",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/finance/expenses?active=true",
+              "host": ["{{base_url}}"], "path": ["finance","expenses"],
+              "query": [{ "key": "active", "value": "true", "description": "true = active only, false = inactive only, omit = all" }]
+            }
+          }
+        },
+        {
+          "name": "6. Update Expense",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 18.00,\n  \"is_active\": 1\n}" },
+            "url": { "raw": "{{base_url}}/finance/expenses/1", "host": ["{{base_url}}"], "path": ["finance","expenses","1"] }
+          }
+        },
+        {
+          "name": "7. Delete Expense",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/finance/expenses/1", "host": ["{{base_url}}"], "path": ["finance","expenses","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "❌ Error Cases (for screenshots)",
+      "description": "These requests demonstrate proper error handling — useful for submission screenshots",
+      "item": [
+        {
+          "name": "Login with wrong password",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Returns 401', () => pm.response.to.have.status(401));",
+            "pm.test('Error message present', () => pm.expect(pm.response.json().message).to.exist);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"testuser@email.com\",\n  \"password\": \"wrongpassword\"\n}" },
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth","login"] }
+          }
+        },
+        {
+          "name": "Access protected route without token",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Returns 401', () => pm.response.to.have.status(401));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/wallet", "host": ["{{base_url}}"], "path": ["wallet"] }
+          }
+        },
+        {
+          "name": "Transfer more than balance",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Returns 400', () => pm.response.to.have.status(400));",
+            "pm.test('Insufficient balance error', () => pm.expect(pm.response.json().message).to.include('Insufficient'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"receiver_username\": \"alice\",\n  \"amount\": 999999.00,\n  \"note\": \"This should fail\"\n}" },
+            "url": { "raw": "{{base_url}}/wallet/transfer", "host": ["{{base_url}}"], "path": ["wallet","transfer"] }
+          }
+        },
+        {
+          "name": "Register duplicate email",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Returns 409 Conflict', () => pm.response.to.have.status(409));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"testuser@email.com\",\n  \"password\": \"password123\"\n}" },
+            "url": { "raw": "{{base_url}}/auth/register", "host": ["{{base_url}}"], "path": ["auth","register"] }
+          }
+        }
+      ]
+    }
+  ]
+}
