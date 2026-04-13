@@ -1,0 +1,213 @@
+{
+  "info": {
+    "_postman_id": "aa32d2f0-8d07-4762-b673-dd7d928b0402",
+    "name": "Finance Wallet - Khata Routes",
+    "description": "Postman collection for khataRoutes.js",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "53232148",
+    "_collection_link": "https://go.postman.co/collection/53232148-aa32d2f0-8d07-4762-b673-dd7d928b0402?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Get My Groups",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/khata",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "khata"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create Group",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Trip Fund\",\n  \"description\": \"Group savings for trip\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/khata",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "khata"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Add Member",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": \"{{memberUserId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/khata/{{groupId}}/members",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "khata",
+            "{{groupId}}",
+            "members"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Group Members",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/khata/{{groupId}}/members",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "khata",
+            "{{groupId}}",
+            "members"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Contributions",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/khata/{{groupId}}/contributions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "khata",
+            "{{groupId}}",
+            "contributions"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Contribute",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": {{amount}},\n  \"note\": \"Monthly contribution\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/khata/{{groupId}}/contribute",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "khata",
+            "{{groupId}}",
+            "contribute"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "groupId",
+      "value": ""
+    },
+    {
+      "key": "memberUserId",
+      "value": ""
+    },
+    {
+      "key": "amount",
+      "value": "100"
+    }
+  ]
+}
