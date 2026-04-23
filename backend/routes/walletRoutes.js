@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getMyWallet, deposit, transfer, getTransactions, getSummary } = require('../controllers/walletControllerr');
+const { getMyWallet, deposit, transfer, getTransactions, getSummary } = require('../controllers/walletController');
 const { protect } = require('../middleware/auth');
 
 router.use(protect);

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { requestLoan, approveLoan, repayLoan, getMyLoans, rejectLoan } = require('../controllers/loansContoller');
+const { requestLoan, approveLoan, repayLoan, getMyLoans, rejectLoan } = require('../controllers/loansController');
 const { protect } = require('../middleware/auth');
 
 router.use(protect);

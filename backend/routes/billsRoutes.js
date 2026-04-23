@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createBillSplit, payMyShare, getMyBills, getBillDetails } = require('../controllers/billsContoller');
+const { createBillSplit, payMyShare, getMyBills, getBillDetails } = require('../controllers/billsController');
 const { protect } = require('../middleware/auth');
 
 router.use(protect);

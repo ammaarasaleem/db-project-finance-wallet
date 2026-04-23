@@ -24,17 +24,16 @@ const Task = {
 //       .query('INSERT INTO Tasks (title, description) VALUES (@title, @description)');
 //   },
   async createTask(title, description) {
-    try{
-    const pool = await poolPromise;
-    await pool.request()
-      .input('title', sql.VarChar, title)
-      .input('description', sql.Text, description)
-      .execute('CreateTask');  // Calls the stored procedure
+    try {
+      const pool = await poolPromise;
+      await pool.request()
+        .input('title', sql.VarChar, title)
+        .input('description', sql.Text, description)
+        .execute('CreateTask');  // Calls the stored procedure
+    } catch(error) {
+      console.log("Error executing stored procedure:", error);
     }
-    catch{
-      console.log("Error executing stored procedure:");
-    }
-},
+  },
 
   async updateTask(id, title, description) {
     const pool = await poolPromise;
