@@ -3,11 +3,11 @@ const { getPool, sql } = require('../config/db');
 // POST /api/bills  - Create a bill split
 const createBillSplit = async (req, res) => {
   const { total_amount, description, participants } = req.body;
-  // participants: [{ username, amount_owed }]
+  // participants: [{ username, amount_owed }]  — these are the OTHER participants (friends)
   const created_by = req.user.user_id;
 
   if (!total_amount || !participants || participants.length === 0)
-    return res.status(400).json({ success: false, message: 'total_amount and participants required.' });
+    return res.status(400).json({ success: false, message: 'total_amount and at least one participant required.' });
 
   try {
     const pool = await getPool();
@@ -24,6 +24,19 @@ const createBillSplit = async (req, res) => {
 
     const split_id = splitRes.recordset[0].split_id;
 
+    // Calculate creator's share = total / (participants + creator)
+    const creatorShare = parseFloat(total_amount) / (participants.length + 1);
+
+    // ── Always insert the creator as a participant with is_paid = 1
+    //    (they "fronted" the money for the group)
+    await pool.request()
+      .input('split_id', sql.Int, split_id)
+      .input('user_id', sql.Int, created_by)
+      .input('amount_owed', sql.Decimal(12, 2), creatorShare)
+      .input('is_paid', sql.Bit, 1)
+      .query(`INSERT INTO BillSplitParticipants (split_id, user_id, amount_owed, is_paid) VALUES (@split_id, @user_id, @amount_owed, @is_paid)`);
+
+    // ── Insert all other participants
     for (const p of participants) {
       const userRes = await pool.request()
         .input('username', sql.VarChar, p.username)
@@ -32,13 +45,15 @@ const createBillSplit = async (req, res) => {
       if (userRes.recordset.length === 0) continue;
 
       const user_id = userRes.recordset[0].user_id;
-      const is_paid = user_id === created_by ? 1 : 0;
+
+      // Skip if username resolves to the creator (already inserted above)
+      if (user_id === created_by) continue;
 
       await pool.request()
         .input('split_id', sql.Int, split_id)
         .input('user_id', sql.Int, user_id)
         .input('amount_owed', sql.Decimal(12, 2), p.amount_owed)
-        .input('is_paid', sql.Bit, is_paid)
+        .input('is_paid', sql.Bit, 0)
         .query(`INSERT INTO BillSplitParticipants (split_id, user_id, amount_owed, is_paid) VALUES (@split_id, @user_id, @amount_owed, @is_paid)`);
     }
 
@@ -74,7 +89,7 @@ const payMyShare = async (req, res) => {
       .query('SELECT balance FROM Wallets WHERE user_id=@uid');
 
     if (balRes.recordset[0].balance < part.amount_owed)
-      return res.status(400).json({ success: false, message: 'Insufficient balance.' });
+      return res.status(400).json({ success: false, message: 'Insufficient balance. Please deposit funds first.' });
 
     // Get bill creator
     const billRes = await pool.request()
@@ -83,7 +98,7 @@ const payMyShare = async (req, res) => {
 
     const creator_id = billRes.recordset[0].created_by;
 
-    // Transfer
+    // Transfer + record transaction
     const txRes = await pool.request()
       .input('user_id', sql.Int, user_id)
       .input('creator_id', sql.Int, creator_id)
@@ -110,7 +125,7 @@ const payMyShare = async (req, res) => {
   }
 };
 
-// GET /api/bills  - My bills
+// GET /api/bills  - My bills (as creator OR as participant)
 const getMyBills = async (req, res) => {
   const user_id = req.user.user_id;
   try {
@@ -118,13 +133,15 @@ const getMyBills = async (req, res) => {
     const result = await pool.request()
       .input('uid', sql.Int, user_id)
       .query(`
-        SELECT bs.split_id, bs.description, bs.total_amount, bs.created_at,
-               u.username AS created_by,
+        SELECT DISTINCT
+               bs.split_id, bs.description, bs.total_amount, bs.created_at,
+               u.username  AS created_by,
                bsp.amount_owed, bsp.is_paid, bsp.participant_id
         FROM BillSplits bs
-        JOIN BillSplitParticipants bsp ON bs.split_id = bsp.split_id
+        LEFT JOIN BillSplitParticipants bsp ON bs.split_id = bsp.split_id AND bsp.user_id = @uid
         JOIN Users u ON bs.created_by = u.user_id
-        WHERE bsp.user_id = @uid
+        WHERE bs.created_by = @uid
+           OR bsp.user_id   = @uid
         ORDER BY bs.created_at DESC
       `);
 

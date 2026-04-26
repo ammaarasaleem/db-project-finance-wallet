@@ -22,22 +22,37 @@ const getMyWallet = async (req, res) => {
 
 // POST /api/wallet/deposit  - Add money to wallet
 const deposit = async (req, res) => {
-  const { amount } = req.body;
-  if (!amount || amount <= 0)
-    return res.status(400).json({ success: false, message: 'Valid amount required.' });
+  const { amount, note } = req.body;
+  const parsedAmount = parseFloat(amount);
+
+  if (!amount || isNaN(parsedAmount) || parsedAmount <= 0)
+    return res.status(400).json({ success: false, message: 'Valid amount greater than 0 required.' });
 
   try {
     const pool = await getPool();
+    const user_id = req.user.user_id;
+
+    // Update wallet balance
     await pool.request()
-      .input('user_id', sql.Int, req.user.user_id)
-      .input('amount', sql.Decimal(12, 2), amount)
-      .query('UPDATE Wallets SET balance = balance + @amount WHERE user_id = @user_id');
+      .input('user_id', sql.Int, user_id)
+      .input('amount', sql.Decimal(12, 2), parsedAmount)
+      .query('UPDATE Wallets SET balance = balance + @amount, updated_at = CURRENT_TIMESTAMP WHERE user_id = @user_id');
+
+    // Record self-transaction for audit trail
+    await pool.request()
+      .input('user_id', sql.Int, user_id)
+      .input('amount', sql.Decimal(12, 2), parsedAmount)
+      .input('note', sql.VarChar, note || 'Deposit')
+      .query(`
+        INSERT INTO Transactions (sender_id, receiver_id, amount, type, status, note)
+        VALUES (@user_id, @user_id, @amount, 'transfer', 'completed', @note)
+      `);
 
     const result = await pool.request()
-      .input('user_id', sql.Int, req.user.user_id)
+      .input('user_id', sql.Int, user_id)
       .query('SELECT balance, currency FROM Wallets WHERE user_id = @user_id');
 
-    res.json({ success: true, message: `Deposited $${amount} successfully.`, data: result.recordset[0] });
+    res.json({ success: true, message: `Deposited $${parsedAmount} successfully.`, data: result.recordset[0] });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

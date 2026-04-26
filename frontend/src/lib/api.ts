@@ -81,10 +81,10 @@ export const api = {
         receiver: string;
       }>>(`/wallet/transactions${query.toString() ? `?${query.toString()}` : ""}`);
     },
-    deposit: (amount: number) =>
+    deposit: (amount: number, note?: string) =>
       request<{ balance: number; currency: string }>("/wallet/deposit", {
         method: "POST",
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, note }),
       }),
     transfer: (payload: { receiver_username: string; amount: number; note?: string }) =>
       request<null>("/wallet/transfer", {
@@ -263,11 +263,12 @@ export const api = {
         body: JSON.stringify(payload),
       }),
     getMembers: (groupId: number, cycleNumber?: number) =>
-      request<{ members: Array<{ username: string; TurnOrder: number }>; unpaid_cycle?: Array<{ username: string }> } | Array<{ username: string; TurnOrder: number }>>(
-        `/khata/${groupId}/members${cycleNumber ? `?cycleNumber=${cycleNumber}` : ""}`,
-      ),
+      request<
+        | { members: Array<{ username: string; TurnOrder: number; JoinedOn?: string }>; unpaid_cycle: Array<{ username: string }> }
+        | Array<{ username: string; TurnOrder: number; JoinedOn?: string }>
+      >(`/khata/${groupId}/members${cycleNumber ? `?cycleNumber=${cycleNumber}` : ""}`),
     getContributions: (groupId: number) =>
-      request<Array<{ username: string; CycleNumber: number; AmountPaid: number; PaidOn: string }>>(`/khata/${groupId}/contributions`),
+      request<Array<{ username: string; CycleNumber: number; AmountPaid: number; PaidOn: string | null }>>(`/khata/${groupId}/contributions`),
     contribute: (groupId: number, cycleNumber: number) =>
       request<null>(`/khata/${groupId}/contribute`, {
         method: "POST",
