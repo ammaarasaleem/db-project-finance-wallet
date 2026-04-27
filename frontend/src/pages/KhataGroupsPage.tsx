@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, CheckCircle2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Users, Plus, CheckCircle2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -17,127 +18,236 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 // ── Utility: calculate current cycle number from start date + cycle type
 function getCurrentCycleNumber(startDate: string, cycleType: string): number {
   const start = new Date(startDate);
-  const now = new Date();
+  const now   = new Date();
   if (now < start) return 1;
 
   if (cycleType === "Weekly") {
     const msPerWeek = 7 * 24 * 60 * 60 * 1000;
     return Math.floor((now.getTime() - start.getTime()) / msPerWeek) + 1;
   }
-  // Monthly: count full calendar months elapsed
+  // Monthly: count full calendar months elapsed + 1
   const months =
     (now.getFullYear() - start.getFullYear()) * 12 +
-    (now.getMonth() - start.getMonth());
+    (now.getMonth()    - start.getMonth());
   return Math.max(1, months + 1);
 }
 
-export default function KhataGroupsPage() {
-  const [createOpen, setCreateOpen] = useState(false);
-  const [expandedGroup, setExpandedGroup] = useState<number | null>(null);
-  const [name, setName] = useState("");
-  const [contributionAmount, setContributionAmount] = useState("");
-  const [cycleType, setCycleType] = useState("Monthly");
-  const [startDate, setStartDate] = useState("");
-  const queryClient = useQueryClient();
+// ── Sub-component: Add Member form (inline, inside expanded group card)
+function AddMemberForm({
+  groupId,
+  nextTurnOrder,
+  onSuccess,
+}: {
+  groupId: number;
+  nextTurnOrder: number;
+  onSuccess: () => void;
+}) {
+  const [username,  setUsername]  = useState("");
+  const [turnOrder, setTurnOrder] = useState(String(nextTurnOrder));
+  const [error,     setError]     = useState("");
 
+  const addMutation = useMutation({
+    mutationFn: (payload: { username: string; turnOrder: number }) =>
+      api.khata.addMember(groupId, payload),
+    onSuccess: (_, vars) => {
+      toast.success(`'${vars.username}' added as turn #${vars.turnOrder}`);
+      setUsername("");
+      setError("");
+      onSuccess();
+    },
+    onError: (err) => {
+      const msg = err instanceof Error ? err.message : "Failed to add member";
+      setError(msg);
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    const to = parseInt(turnOrder, 10);
+    if (!username.trim()) { setError("Username is required."); return; }
+    if (isNaN(to) || to < 1) { setError("Turn order must be ≥ 1."); return; }
+    addMutation.mutate({ username: username.trim(), turnOrder: to });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <Label className="text-xs mb-1 block">Username</Label>
+          <Input
+            value={username}
+            onChange={(e) => { setUsername(e.target.value); setError(""); }}
+            placeholder="Enter username"
+            required
+          />
+        </div>
+        <div className="w-28">
+          <Label className="text-xs mb-1 block">Turn Order</Label>
+          <Input
+            value={turnOrder}
+            onChange={(e) => { setTurnOrder(e.target.value); setError(""); }}
+            type="number"
+            min="1"
+            step="1"
+            placeholder="e.g. 2"
+            required
+          />
+        </div>
+        <div className="flex items-end">
+          <Button type="submit" size="sm" disabled={addMutation.isPending}>
+            <UserPlus className="h-4 w-4 mr-1" />
+            {addMutation.isPending ? "Adding…" : "Add"}
+          </Button>
+        </div>
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </form>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+export default function KhataGroupsPage() {
+  // ── Create group dialog state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [name,               setName]               = useState("");
+  const [contributionAmount, setContributionAmount] = useState("");
+  const [cycleType,          setCycleType]          = useState("Monthly");
+  const [startDate,          setStartDate]          = useState("");
+  const [createAmtError,     setCreateAmtError]     = useState("");
+
+  // ── Which group is expanded
+  const [expandedGroup, setExpandedGroup] = useState<number | null>(null);
+
+  const queryClient  = useQueryClient();
   const { data: currentUser } = useCurrentUser();
 
+  // ── All groups the current user belongs to
   const { data: groups = [] } = useQuery({
     queryKey: ["khata-groups"],
     queryFn: api.khata.getGroups,
   });
 
-  // Fetch members for the expanded group — with cycleNumber for payment status
+  // ── For the expanded group — derive cycle number
   const expandedGroupData = groups.find((g) => g.Id === expandedGroup);
   const currentCycle = expandedGroupData
     ? getCurrentCycleNumber(expandedGroupData.StartDate, expandedGroupData.CycleType)
     : 1;
 
+  // ── Members (with paid/unpaid status for current cycle)
   const membersQuery = useQuery({
     queryKey: ["khata-members", expandedGroup, currentCycle],
-    queryFn: () =>
-      api.khata.getMembers(Number(expandedGroup), currentCycle),
-    enabled: Boolean(expandedGroup),
+    queryFn:  () => api.khata.getMembers(Number(expandedGroup), currentCycle),
+    enabled:  Boolean(expandedGroup),
   });
 
+  // ── Contribution history
   const contributionsQuery = useQuery({
     queryKey: ["khata-contributions", expandedGroup],
-    queryFn: () => api.khata.getContributions(Number(expandedGroup)),
-    enabled: Boolean(expandedGroup),
+    queryFn:  () => api.khata.getContributions(Number(expandedGroup)),
+    enabled:  Boolean(expandedGroup),
   });
 
-  // ── Create group mutation — auto-expand the new group on success (BUG #2B)
+  // ── Next available TurnOrder (for "Add Member" form auto-fill)
+  const nextTurnOrderQuery = useQuery({
+    queryKey: ["khata-next-turn", expandedGroup],
+    queryFn:  () => api.khata.getNextTurnOrder(Number(expandedGroup)),
+    enabled:  Boolean(expandedGroup),
+  });
+
+  // ── Create group
   const createMutation = useMutation({
     mutationFn: api.khata.create,
     onSuccess: async (data) => {
-      toast.success("Khata group created! See the member turn order below.");
+      toast.success("Khata group created! You are turn #1. Add more members below.");
       setCreateOpen(false);
-      setName("");
-      setContributionAmount("");
-      setCycleType("Monthly");
-      setStartDate("");
+      setName(""); setContributionAmount(""); setCycleType("Monthly"); setStartDate("");
+      setCreateAmtError("");
       await queryClient.invalidateQueries({ queryKey: ["khata-groups"] });
-      // Auto-expand the newly created group so user sees member turn order immediately
-      if (data?.groupId) {
-        setExpandedGroup(data.groupId);
-      }
+      // Auto-expand the new group so creator sees turn order immediately
+      if (data?.groupId) setExpandedGroup(data.groupId);
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Create failed"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Create failed"),
   });
 
-  // ── Pay contribution mutation (BUG #2A / #2C)
+  // ── Pay contribution
   const contributeMutation = useMutation({
     mutationFn: ({ groupId, cycleNumber }: { groupId: number; cycleNumber: number }) =>
       api.khata.contribute(groupId, cycleNumber),
-    onSuccess: async (_, variables) => {
-      toast.success(`Contribution for cycle ${variables.cycleNumber} recorded!`);
+    onSuccess: async (data, variables) => {
+      toast.success(
+        `Contribution of $${data?.amountPaid?.toFixed(2) ?? ""} recorded for cycle ${variables.cycleNumber}!`
+      );
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["khata-contributions", variables.groupId] }),
         queryClient.invalidateQueries({ queryKey: ["khata-members", variables.groupId] }),
         queryClient.invalidateQueries({ queryKey: ["wallet"] }),
         queryClient.invalidateQueries({ queryKey: ["wallet-summary"] }),
+        queryClient.invalidateQueries({ queryKey: ["wallet-transactions"] }),
       ]);
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Contribution failed"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Contribution failed"),
   });
 
-  // Determine which members have already paid for the current cycle
+  // ── Derive member arrays from query result
   const membersArr = Array.isArray(membersQuery.data)
     ? membersQuery.data
-    : (membersQuery.data as { members?: typeof membersQuery.data & any[] })?.members || [];
+    : (membersQuery.data as any)?.members || [];
 
   const unpaidArr: Array<{ username: string }> = Array.isArray(membersQuery.data)
     ? []
     : (membersQuery.data as any)?.unpaid_cycle || [];
 
   const unpaidUsernames = new Set(unpaidArr.map((u) => u.username));
-  // If unpaidArr is populated, any member NOT in unpaidArr has paid.
-  // If no cycleNumber data returned, treat all as unpaid until we know.
+
   const getMemberPaidStatus = (username: string): boolean => {
-    if (unpaidArr.length === 0) {
-      // Check contributions array directly as fallback
-      const contributions = contributionsQuery.data || [];
-      return contributions.some(
-        (c) => c.username === username && c.CycleNumber === currentCycle
-      );
+    // unpaid_cycle = members who have NOT paid; anyone NOT in it has paid
+    if (membersQuery.data && !Array.isArray(membersQuery.data)) {
+      // We have structured data with unpaid_cycle
+      return !unpaidUsernames.has(username);
     }
-    return !unpaidUsernames.has(username);
+    // Fallback: check contributions array directly
+    return (contributionsQuery.data || []).some(
+      (c) => c.username === username && c.CycleNumber === currentCycle
+    );
   };
 
   const isCurrentUserMember = membersArr.some(
     (m: any) => m.username === currentUser?.username
   );
-
   const currentUserPaid = currentUser
     ? getMemberPaidStatus(currentUser.username)
     : false;
+
+  // ── Is the logged-in user the creator of the expanded group?
+  const isCreator = expandedGroupData?.creator === currentUser?.username;
+
+  const nextTurnOrder = nextTurnOrderQuery.data?.nextTurnOrder ?? (membersArr.length + 1);
 
   const handleToggleExpand = (groupId: number) => {
     setExpandedGroup(expandedGroup === groupId ? null : groupId);
   };
 
+  const handleMemberAdded = () => {
+    queryClient.invalidateQueries({ queryKey: ["khata-members",    expandedGroup] });
+    queryClient.invalidateQueries({ queryKey: ["khata-next-turn",  expandedGroup] });
+    queryClient.invalidateQueries({ queryKey: ["khata-groups"] });
+  };
+
+  const handleCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateAmtError("");
+    const parsed = parseFloat(contributionAmount);
+    if (isNaN(parsed) || parsed <= 0) {
+      setCreateAmtError("Contribution amount must be a positive number.");
+      return;
+    }
+    createMutation.mutate({ name, contributionAmount: parsed, cycleType, startDate });
+  };
+
   return (
     <div className="space-y-6">
+      {/* ── Page header ── */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Khata Groups</h2>
@@ -145,24 +255,13 @@ export default function KhataGroupsPage() {
         </div>
 
         {/* ── Create Group Dialog ── */}
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <Dialog open={createOpen} onOpenChange={(o) => { setCreateOpen(o); if (!o) setCreateAmtError(""); }}>
           <DialogTrigger asChild>
             <Button><Plus className="mr-2 h-4 w-4" />Create Group</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Create Khata Group</DialogTitle></DialogHeader>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                createMutation.mutate({
-                  name,
-                  contributionAmount: parseFloat(contributionAmount),
-                  cycleType,
-                  startDate,
-                });
-              }}
-              className="space-y-4"
-            >
+            <form onSubmit={handleCreateSubmit} className="space-y-4">
               <div>
                 <Label>Group Name</Label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Office Committee" required />
@@ -171,13 +270,14 @@ export default function KhataGroupsPage() {
                 <Label>Contribution Amount per Cycle</Label>
                 <Input
                   value={contributionAmount}
-                  onChange={(e) => setContributionAmount(e.target.value)}
+                  onChange={(e) => { setContributionAmount(e.target.value); setCreateAmtError(""); }}
                   type="number"
                   placeholder="e.g. 500"
-                  min="1"
+                  min="0.01"
                   step="any"
                   required
                 />
+                {createAmtError && <p className="text-sm text-destructive mt-1">{createAmtError}</p>}
               </div>
               <div>
                 <Label>Cycle Type</Label>
@@ -202,12 +302,15 @@ export default function KhataGroupsPage() {
       </div>
 
       {groups.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-8">No Khata groups yet. Create one to get started.</p>
+        <p className="text-sm text-muted-foreground text-center py-8">
+          No Khata groups yet. Create one to get started.
+        </p>
       )}
 
+      {/* ── Group cards ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {groups.map((group) => {
-          const cycle = getCurrentCycleNumber(group.StartDate, group.CycleType);
+          const cycle     = getCurrentCycleNumber(group.StartDate, group.CycleType);
           const isExpanded = expandedGroup === group.Id;
 
           return (
@@ -216,6 +319,7 @@ export default function KhataGroupsPage() {
               className="card-shadow cursor-pointer"
               onClick={() => handleToggleExpand(group.Id)}
             >
+              {/* ── Card header ── */}
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
@@ -223,15 +327,18 @@ export default function KhataGroupsPage() {
                   </div>
                   <div className="flex-1">
                     <CardTitle className="text-base text-foreground">{group.Name}</CardTitle>
-                    <p className="text-xs text-muted-foreground">{group.CycleType} · Cycle #{cycle}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {group.CycleType} · Cycle #{cycle} · Creator: {group.creator}
+                    </p>
                   </div>
-                  <Badge variant="outline" className="text-xs">
+                  <Badge variant="outline" className="text-xs shrink-0">
                     {isExpanded ? "▲ Hide" : "▼ Details"}
                   </Badge>
                 </div>
               </CardHeader>
 
               <CardContent className="space-y-3">
+                {/* ── Summary row ── */}
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="text-muted-foreground">Contribution: </span>
@@ -251,18 +358,22 @@ export default function KhataGroupsPage() {
                   </div>
                 </div>
 
-                {/* ── Expanded Detail Section ── */}
+                {/* ── Expanded detail ── */}
                 {isExpanded && (
                   <div
-                    className="mt-4 space-y-4"
-                    onClick={(e) => e.stopPropagation()} // prevent card toggle when clicking inside
+                    className="mt-4 space-y-5"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    {/* ── BUG #2A: Pay My Contribution button for current user ── */}
+                    {/* ── Pay My Contribution ── */}
                     {isCurrentUserMember && (
                       <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/20">
                         <div>
-                          <p className="text-sm font-medium text-foreground">Your contribution – Cycle #{cycle}</p>
-                          <p className="text-xs text-muted-foreground">{formatCurrency(toNumber(group.ContributionAmount))} due</p>
+                          <p className="text-sm font-medium text-foreground">
+                            Your contribution — Cycle #{cycle}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatCurrency(toNumber(group.ContributionAmount))} due
+                          </p>
                         </div>
                         {currentUserPaid ? (
                           <Badge className="bg-green-100 text-green-700 border-green-200 flex items-center gap-1">
@@ -271,7 +382,9 @@ export default function KhataGroupsPage() {
                         ) : (
                           <Button
                             size="sm"
-                            onClick={() => contributeMutation.mutate({ groupId: group.Id, cycleNumber: cycle })}
+                            onClick={() =>
+                              contributeMutation.mutate({ groupId: group.Id, cycleNumber: cycle })
+                            }
                             disabled={contributeMutation.isPending}
                           >
                             {contributeMutation.isPending ? "Processing…" : "Pay Contribution"}
@@ -280,10 +393,12 @@ export default function KhataGroupsPage() {
                       </div>
                     )}
 
-                    {/* ── BUG #2B: Members & Turn Order with payment status ── */}
+                    <Separator />
+
+                    {/* ── Members & Turn Order ── */}
                     <div>
                       <h4 className="text-sm font-semibold text-foreground mb-2">
-                        Members & Turn Order — Cycle #{cycle} Status
+                        Members &amp; Turn Order — Cycle #{cycle} Status
                       </h4>
                       {membersQuery.isLoading ? (
                         <p className="text-xs text-muted-foreground">Loading members…</p>
@@ -320,9 +435,30 @@ export default function KhataGroupsPage() {
                       )}
                     </div>
 
-                    {/* ── BUG #2C: Contributions history table ── */}
+                    {/* ── Add Member form (only visible to group creator) ── */}
+                    {isCreator && (
+                      <>
+                        <Separator />
+                        <div>
+                          <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1">
+                            <UserPlus className="h-4 w-4" /> Add New Member
+                          </h4>
+                          <AddMemberForm
+                            groupId={group.Id}
+                            nextTurnOrder={nextTurnOrder}
+                            onSuccess={handleMemberAdded}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <Separator />
+
+                    {/* ── Contribution history ── */}
                     <div>
-                      <h4 className="text-sm font-semibold text-foreground mb-2">Contribution History</h4>
+                      <h4 className="text-sm font-semibold text-foreground mb-2">
+                        Contribution History
+                      </h4>
                       {(contributionsQuery.data || []).length === 0 ? (
                         <p className="text-xs text-muted-foreground">No contributions recorded yet.</p>
                       ) : (
@@ -340,7 +476,9 @@ export default function KhataGroupsPage() {
                               <TableRow key={`${c.username}-${c.CycleNumber}-${i}`}>
                                 <TableCell className="font-medium">{c.username}</TableCell>
                                 <TableCell>#{c.CycleNumber}</TableCell>
-                                <TableCell className="font-semibold">{formatCurrency(toNumber(c.AmountPaid))}</TableCell>
+                                <TableCell className="font-semibold">
+                                  {formatCurrency(toNumber(c.AmountPaid))}
+                                </TableCell>
                                 <TableCell className="text-xs text-muted-foreground">
                                   {c.PaidOn ? new Date(c.PaidOn).toLocaleDateString() : "—"}
                                 </TableCell>
@@ -350,6 +488,7 @@ export default function KhataGroupsPage() {
                         </Table>
                       )}
                     </div>
+
                   </div>
                 )}
               </CardContent>

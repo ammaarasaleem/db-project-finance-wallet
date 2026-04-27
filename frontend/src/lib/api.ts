@@ -270,9 +270,11 @@ export const api = {
     getContributions: (groupId: number) =>
       request<Array<{ username: string; CycleNumber: number; AmountPaid: number; PaidOn: string | null }>>(`/khata/${groupId}/contributions`),
     contribute: (groupId: number, cycleNumber: number) =>
-      request<null>(`/khata/${groupId}/contribute`, {
+      request<{ cycleNumber: number; amountPaid: number; newBalance: number }>(`/khata/${groupId}/contribute`, {
         method: "POST",
         body: JSON.stringify({ cycleNumber }),
       }),
+    getNextTurnOrder: (groupId: number) =>
+      request<{ nextTurnOrder: number }>(`/khata/${groupId}/next-turn-order`),
   },
 };
