@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TypeBadge, StatusBadge } from "@/components/StatusBadge";
@@ -29,7 +27,7 @@ export default function TransactionsPage() {
     queryFn: () => api.wallet.getTransactions({ limit: 200, offset: 0 }),
   });
 
-  const filtered = transactions.filter(tx => {
+  const filtered = transactions.filter((tx) => {
     if (filterType !== "all" && tx.type !== filterType) return false;
     if (filterStatus !== "all" && tx.status !== filterStatus) return false;
     return true;
@@ -38,87 +36,113 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Transactions</h2>
-        <p className="text-sm text-muted-foreground">View and filter all transactions</p>
+        <h2 className="text-2xl font-display font-bold text-foreground">Transactions</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">View and filter all activity</p>
       </div>
 
-      <Card className="card-shadow">
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-            <CardTitle className="text-foreground">All Transactions</CardTitle>
-            <div className="flex gap-2 flex-wrap">
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="transfer">Transfer</SelectItem>
-                  <SelectItem value="bill_split">Bill Split</SelectItem>
-                  <SelectItem value="loan">Loan</SelectItem>
-                  <SelectItem value="loan_repayment">Repayment</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="bg-card border border-border rounded-xl card-shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-border flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <h3 className="font-display font-semibold text-foreground">All Transactions</h3>
+          <div className="flex gap-2">
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="transfer">Transfer</SelectItem>
+                <SelectItem value="bill_split">Bill Split</SelectItem>
+                <SelectItem value="loan">Loan</SelectItem>
+                <SelectItem value="loan_repayment">Repayment</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Sender</TableHead>
-                <TableHead>Receiver</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Note</TableHead>
-                <TableHead>Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((tx) => (
-                <TableRow key={tx.transaction_id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelected(tx)}>
-                  <TableCell className="text-xs text-muted-foreground">{tx.transaction_id}</TableCell>
-                  <TableCell className="font-medium">{tx.sender}</TableCell>
-                  <TableCell>{tx.receiver}</TableCell>
-                  <TableCell className="font-semibold">{formatCurrency(toNumber(tx.amount))}</TableCell>
-                  <TableCell><TypeBadge type={tx.type} /></TableCell>
-                  <TableCell><StatusBadge status={tx.status} /></TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">{tx.note}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{new Date(tx.created_at).toLocaleDateString()}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        </div>
 
+        {filtered.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-10">No transactions found.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-surface-container-low">
+                  <th className="text-left px-6 py-3 label-caps text-muted-foreground">Sender</th>
+                  <th className="text-left px-6 py-3 label-caps text-muted-foreground">Receiver</th>
+                  <th className="text-right px-6 py-3 label-caps text-muted-foreground">Amount</th>
+                  <th className="text-left px-6 py-3 label-caps text-muted-foreground">Type</th>
+                  <th className="text-left px-6 py-3 label-caps text-muted-foreground">Status</th>
+                  <th className="text-left px-6 py-3 label-caps text-muted-foreground hidden md:table-cell">Note</th>
+                  <th className="text-left px-6 py-3 label-caps text-muted-foreground">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filtered.map((tx) => (
+                  <tr
+                    key={tx.transaction_id}
+                    className="hover:bg-surface-container-low transition-colors cursor-pointer"
+                    onClick={() => setSelected(tx)}
+                  >
+                    <td className="px-6 py-3 font-medium text-foreground">{tx.sender}</td>
+                    <td className="px-6 py-3 text-foreground">{tx.receiver}</td>
+                    <td className="px-6 py-3 text-right font-semibold font-display tabular-nums text-foreground">
+                      {formatCurrency(toNumber(tx.amount))}
+                    </td>
+                    <td className="px-6 py-3"><TypeBadge type={tx.type} /></td>
+                    <td className="px-6 py-3"><StatusBadge status={tx.status} /></td>
+                    <td className="px-6 py-3 text-muted-foreground max-w-[160px] truncate hidden md:table-cell">{tx.note ?? "—"}</td>
+                    <td className="px-6 py-3 text-muted-foreground">{new Date(tx.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Detail modal */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Transaction Details</DialogTitle>
+            <DialogTitle className="font-display">Transaction Details</DialogTitle>
           </DialogHeader>
           {selected && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-muted-foreground">ID:</span> <span className="font-mono">{selected.transaction_id}</span></div>
-                <div><span className="text-muted-foreground">Date:</span> {new Date(selected.created_at).toLocaleString()}</div>
-                <div><span className="text-muted-foreground">Sender:</span> {selected.sender}</div>
-                <div><span className="text-muted-foreground">Receiver:</span> {selected.receiver}</div>
-                <div><span className="text-muted-foreground">Amount:</span> <span className="font-bold">{formatCurrency(toNumber(selected.amount))}</span></div>
-                <div className="flex items-center gap-2"><span className="text-muted-foreground">Type:</span> <TypeBadge type={selected.type} /></div>
-                <div className="flex items-center gap-2"><span className="text-muted-foreground">Status:</span> <StatusBadge status={selected.status} /></div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                {[
+                  ["ID", `#${selected.transaction_id}`],
+                  ["Date", new Date(selected.created_at).toLocaleString()],
+                  ["Sender", selected.sender],
+                  ["Receiver", selected.receiver],
+                  ["Amount", formatCurrency(toNumber(selected.amount))],
+                ].map(([label, val]) => (
+                  <div key={label}>
+                    <p className="label-caps text-muted-foreground mb-0.5">{label}</p>
+                    <p className="font-medium text-foreground">{val}</p>
+                  </div>
+                ))}
+                <div>
+                  <p className="label-caps text-muted-foreground mb-0.5">Type</p>
+                  <TypeBadge type={selected.type} />
+                </div>
+                <div>
+                  <p className="label-caps text-muted-foreground mb-0.5">Status</p>
+                  <StatusBadge status={selected.status} />
+                </div>
               </div>
-              <div className="text-sm"><span className="text-muted-foreground">Note:</span> {selected.note}</div>
+              {selected.note && (
+                <div className="p-3 rounded-lg bg-surface-container-low border border-border text-sm text-foreground">
+                  <p className="label-caps text-muted-foreground mb-1">Note</p>
+                  {selected.note}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

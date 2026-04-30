@@ -1,17 +1,10 @@
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Search, UserPlus, Check, X } from "lucide-react";
+import { Check, X, UserPlus, Search, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-
-const statusColors: Record<string, string> = {
-  accepted: "bg-success/15 text-success border-success/20",
-  pending: "bg-warning/15 text-warning border-warning/20",
-};
 
 export default function FriendsPage() {
   const [search, setSearch] = useState("");
@@ -28,7 +21,7 @@ export default function FriendsPage() {
       setFriendUsername("");
       await queryClient.invalidateQueries({ queryKey: ["friends-pending"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Request failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Request failed"),
   });
 
   const acceptMutation = useMutation({
@@ -40,7 +33,7 @@ export default function FriendsPage() {
         queryClient.invalidateQueries({ queryKey: ["friends-pending"] }),
       ]);
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Accept failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Accept failed"),
   });
 
   const removeMutation = useMutation({
@@ -49,98 +42,142 @@ export default function FriendsPage() {
       toast.success("Removed");
       await queryClient.invalidateQueries({ queryKey: ["friends"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Remove failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Remove failed"),
   });
 
-  const merged = [
-    ...accepted.map((f) => ({
-      id: f.friendship_id,
-      username: f.username,
-      email: f.email,
-      status: "accepted",
-      initials: f.username
-        .split(" ")
-        .map((part) => part[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase(),
-    })),
-    ...pending.map((f) => ({
-      id: f.friendship_id,
-      username: f.username,
-      email: f.email,
-      status: "pending",
-      initials: f.username
-        .split(" ")
-        .map((part) => part[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase(),
-    })),
-  ];
+  const initials = (name: string) =>
+    name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 
-  const filtered = merged.filter((f) => f.username.toLowerCase().includes(search.toLowerCase()));
+  const filteredAccepted = accepted.filter((f) =>
+    f.username.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Friends</h2>
-          <p className="text-sm text-muted-foreground">Manage your connections</p>
+          <h2 className="text-2xl font-display font-bold text-foreground">Friends</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage your connections</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex gap-2">
           <Input
             value={friendUsername}
             onChange={(e) => setFriendUsername(e.target.value)}
-            placeholder="username"
-            className="w-40"
+            placeholder="Enter username…"
+            className="w-full sm:w-44"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && friendUsername.trim()) {
+                e.preventDefault();
+                sendMutation.mutate(friendUsername.trim());
+              }
+            }}
           />
-          <Button onClick={() => sendMutation.mutate(friendUsername)} disabled={!friendUsername || sendMutation.isPending}>
-            <UserPlus className="mr-2 h-4 w-4" />Add Friend
+          <Button
+            onClick={() => friendUsername.trim() && sendMutation.mutate(friendUsername.trim())}
+            disabled={!friendUsername.trim() || sendMutation.isPending}
+          >
+            <UserPlus className="mr-2 h-4 w-4" /> Add Friend
           </Button>
         </div>
       </div>
 
+      {/* Pending requests */}
+      {pending.length > 0 && (
+        <div className="bg-card border border-border rounded-xl card-shadow overflow-hidden">
+          <div className="px-6 py-4 border-b border-border">
+            <h3 className="font-display font-semibold text-foreground">
+              Pending Requests{" "}
+              <span className="ml-1 px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                {pending.length}
+              </span>
+            </h3>
+          </div>
+          <div className="divide-y divide-border">
+            {pending.map((f) => (
+              <div key={f.friendship_id} className="flex items-center justify-between px-6 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center font-display font-bold text-sm text-foreground shrink-0">
+                    {initials(f.username)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{f.username}</p>
+                    <p className="text-xs text-muted-foreground">{f.email}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => acceptMutation.mutate(f.friendship_id)}
+                    disabled={acceptMutation.isPending}
+                  >
+                    <Check className="mr-1.5 h-3.5 w-3.5" /> Accept
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => removeMutation.mutate(f.friendship_id)}
+                    disabled={removeMutation.isPending}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search by username..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <Input
+          placeholder="Search friends…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((friend) => (
-          <Card key={friend.id} className="card-shadow">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                  {friend.initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-foreground truncate">{friend.username}</p>
-                  <p className="text-xs text-muted-foreground truncate">{friend.email}</p>
-                  <Badge variant="outline" className={`text-xs mt-1 ${statusColors[friend.status]}`}>
-                    {friend.status}
-                  </Badge>
-                </div>
-                {friend.status === "pending" && (
-                  <div className="flex gap-1">
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => acceptMutation.mutate(friend.id)}>
-                      <Check className="h-4 w-4 text-success" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => removeMutation.mutate(friend.id)}>
-                      <X className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                )}
-                {friend.status === "accepted" && (
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => removeMutation.mutate(friend.id)}>
-                    <X className="h-4 w-4 text-destructive" />
-                  </Button>
-                )}
+      {/* Friends grid */}
+      {filteredAccepted.length === 0 ? (
+        <div className="bg-card border border-border rounded-xl p-10 text-center card-shadow">
+          <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+          <p className="font-display font-semibold text-foreground mb-1">
+            {search ? "No friends match your search" : "No friends yet"}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {search ? "Try a different username." : "Add a friend using their username above."}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredAccepted.map((f) => (
+            <div key={f.friendship_id} className="bg-card border border-border rounded-xl p-4 card-shadow flex items-center gap-3">
+              <div className="w-11 h-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-display font-bold text-sm shrink-0">
+                {initials(f.username)}
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-foreground truncate">{f.username}</p>
+                <p className="text-xs text-muted-foreground truncate">{f.email}</p>
+                <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-emerald-soft text-emerald text-xs font-medium">
+                  Friends
+                </span>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-coral-soft"
+                onClick={() => removeMutation.mutate(f.friendship_id)}
+                disabled={removeMutation.isPending}
+                title="Remove friend"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

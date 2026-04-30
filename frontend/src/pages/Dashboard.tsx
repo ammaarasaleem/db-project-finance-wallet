@@ -1,103 +1,255 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TypeBadge, StatusBadge } from "@/components/StatusBadge";
-import { Wallet, TrendingUp, TrendingDown, DollarSign, Handshake, Receipt, PiggyBank } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatCurrency, toNumber } from "@/lib/format";
+import { TrendingUp, TrendingDown, Wallet, Handshake, Receipt, ArrowRight, Coins } from "lucide-react";
+import { Link } from "react-router-dom";
+
+const txIcon: Record<string, string> = {
+  transfer: "⇄",
+  bill_split: "🍽",
+  loan: "🤝",
+  loan_repayment: "💸",
+  deposit: "↓",
+};
 
 export default function Dashboard() {
   const { data: summary } = useQuery({ queryKey: ["wallet-summary"], queryFn: api.wallet.getSummary });
   const { data: overview } = useQuery({ queryKey: ["finance-overview"], queryFn: api.finance.getOverview });
   const { data: transactions = [] } = useQuery({
     queryKey: ["wallet-transactions", "dashboard"],
-    queryFn: () => api.wallet.getTransactions({ limit: 5, offset: 0 }),
+    queryFn: () => api.wallet.getTransactions({ limit: 6, offset: 0 }),
   });
   const { data: loans = [] } = useQuery({ queryKey: ["loans"], queryFn: api.loans.getAll });
   const { data: bills = [] } = useQuery({ queryKey: ["bills"], queryFn: api.bills.getAll });
   const { data: vaults = [] } = useQuery({ queryKey: ["vaults"], queryFn: api.vaults.getAll });
 
   const walletBalance = toNumber(summary?.wallet?.balance);
-  const monthlySalary = toNumber(summary?.salary?.amount || overview?.salary?.amount);
-  const totalFixedExpenses = toNumber(overview?.total_expenses || summary?.monthly_expenses);
-  const disposable = toNumber(overview?.disposable_income ?? monthlySalary - totalFixedExpenses);
-  const activeLoansCount = loans.filter((loan) => loan.status === "active").length;
-  const pendingSplits = bills.filter((bill) => !bill.is_paid).length;
-  const activeSavings = vaults.filter((vault) => !vault.isAchieved).length;
-
-  const stats = [
-    { title: "Wallet Balance", value: formatCurrency(walletBalance), icon: Wallet, accent: true },
-    { title: "Monthly Salary", value: formatCurrency(monthlySalary), icon: TrendingUp },
-    { title: "Fixed Expenses", value: formatCurrency(totalFixedExpenses), icon: TrendingDown },
-    { title: "Disposable Income", value: formatCurrency(disposable), icon: DollarSign },
-    { title: "Active Loans", value: activeLoansCount.toString(), icon: Handshake },
-    { title: "Pending Splits", value: pendingSplits.toString(), icon: Receipt },
-    { title: "Saving Vaults", value: activeSavings.toString(), icon: PiggyBank },
-  ];
+  const monthlySalary = toNumber(summary?.salary?.amount ?? overview?.salary?.amount);
+  const totalExpenses = toNumber(overview?.total_expenses ?? summary?.monthly_expenses);
+  const disposable = toNumber(overview?.disposable_income ?? monthlySalary - totalExpenses);
+  const expenseRatio = monthlySalary > 0 ? Math.min(100, (totalExpenses / monthlySalary) * 100) : 0;
+  const activeLoans = loans.filter((l) => l.status === "active").length;
+  const pendingSplits = bills.filter((b) => !b.is_paid).length;
+  const activeVaults = vaults.filter((v) => !v.isAchieved);
 
   return (
     <div className="space-y-6">
+      {/* Page heading */}
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
-        <p className="text-sm text-muted-foreground">Overview of your finances</p>
+        <h2 className="text-2xl font-display font-bold text-foreground">Dashboard</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">Overview of your finances</p>
       </div>
 
+      {/* Hero grid: Balance + Vaults */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Wallet balance card */}
+        <div className="lg:col-span-8 bg-card rounded-xl border border-border p-6 card-shadow relative overflow-hidden">
+          <div className="absolute -top-10 -right-10 w-52 h-52 rounded-full bg-surface-container opacity-50 pointer-events-none" />
+          {/* Floating coin decorations */}
+          {([
+            { size: 28, right: 32,  bottom: 20, delay: "0s",   dur: "3.4s" },
+            { size: 20, right: 68,  bottom: 12, delay: "1.2s", dur: "4.1s" },
+            { size: 24, right: 108, bottom: 28, delay: "2.3s", dur: "3.8s" },
+            { size: 16, right: 52,  bottom: 44, delay: "0.7s", dur: "4.5s" },
+          ] as const).map((c, i) => (
+            <div
+              key={i}
+              className="absolute rounded-full border-2 border-amber-400/30 bg-amber-400/10 flex items-center justify-center pointer-events-none"
+              style={{
+                width: c.size, height: c.size,
+                right: c.right, bottom: c.bottom,
+                animation: `float-up ${c.dur} ease-in ${c.delay} infinite`,
+              }}
+            >
+              <span className="text-amber-500/50 font-black select-none" style={{ fontSize: Math.round(c.size * 0.42) }}>$</span>
+            </div>
+          ))}
+          <div className="relative z-10 flex flex-col h-full justify-between gap-6">
+            <div>
+              <p className="label-caps text-muted-foreground mb-2">Current Balance</p>
+              <p className="text-5xl font-display font-bold text-foreground leading-none">
+                {formatCurrency(walletBalance)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">{summary?.wallet?.currency || "USD"}</p>
+            </div>
+            <div className="flex gap-3">
+              <Link
+                to="/wallet"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+              >
+                <Wallet className="h-4 w-4" /> Add Funds
+              </Link>
+              <Link
+                to="/wallet"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-container text-foreground text-sm font-semibold border border-border hover:bg-surface-container-high transition-colors"
+              >
+                <ArrowRight className="h-4 w-4" /> Send Money
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Top Saving Vaults */}
+        <div className="lg:col-span-4 bg-card rounded-xl border border-border p-5 card-shadow flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display font-semibold text-foreground text-base">Saving Vaults</h3>
+            <Link to="/saving-vaults" className="label-caps text-primary hover:opacity-70 transition-opacity">
+              View All
+            </Link>
+          </div>
+          <div className="flex-1 space-y-4">
+            {activeVaults.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">No active vaults yet.</p>
+            )}
+            {activeVaults.slice(0, 3).map((vault) => (
+              <div key={vault.id} className="flex items-center gap-3">
+                <div className="relative w-11 h-11 shrink-0">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      className="text-surface-container-high"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeDasharray="100, 100"
+                      strokeWidth="3"
+                    />
+                    <path
+                      className="text-primary"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeDasharray={`${Math.round(vault.progress_percent)}, 100`}
+                      strokeWidth="3"
+                    />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center" style={{ fontSize: "9px", fontWeight: 700 }}>
+                    {Math.round(vault.progress_percent)}%
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-semibold text-foreground truncate">{vault.vault_name}</p>
+                    {vault.progress_percent >= 80 && (
+                      <Coins
+                        className="h-3.5 w-3.5 text-amber-500 shrink-0"
+                        style={{ animation: "coin-flip 2.4s ease-in-out infinite" }}
+                      />
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {formatCurrency(toNumber(vault.savedAmount))} / {formatCurrency(toNumber(vault.targetAmount))}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Summary cards row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <Card key={stat.title} className={`card-shadow transition-shadow hover:card-shadow-hover ${stat.accent ? 'bg-primary text-primary-foreground' : ''}`}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className={`text-sm font-medium ${stat.accent ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                {stat.title}
-              </CardTitle>
-              <stat.icon className={`h-4 w-4 ${stat.accent ? 'text-primary-foreground/70' : 'text-muted-foreground'}`} />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${stat.accent ? '' : 'text-foreground'}`}>{stat.value}</div>
-            </CardContent>
-          </Card>
-        ))}
+        {/* Salary */}
+        <div className="rounded-xl p-5 border border-border bg-card card-shadow">
+          <p className="label-caps text-muted-foreground mb-2">Monthly Salary</p>
+          <p className="text-2xl font-display font-bold text-foreground">{formatCurrency(monthlySalary)}</p>
+        </div>
+
+        {/* Expenses with progress bar */}
+        <div className="rounded-xl p-5 border border-border bg-card card-shadow flex flex-col gap-2">
+          <p className="label-caps text-muted-foreground">Total Expenses</p>
+          <p className="text-2xl font-display font-bold text-foreground">{formatCurrency(totalExpenses)}</p>
+          <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+            <div className="h-full rounded-full bg-red-400 transition-all" style={{ width: `${expenseRatio}%` }} />
+          </div>
+          <p className="text-xs text-muted-foreground">{expenseRatio.toFixed(0)}% of salary</p>
+        </div>
+
+        {/* Disposable income */}
+        <div className="rounded-xl p-5 border border-border bg-card card-shadow">
+          <p className="label-caps text-muted-foreground mb-2">Disposable Income</p>
+          <p className={`text-2xl font-display font-bold ${disposable >= 0 ? "text-emerald" : "text-coral-DEFAULT"}`}>
+            {formatCurrency(disposable)}
+          </p>
+          <p className={`text-xs mt-1 flex items-center gap-1 ${disposable >= 0 ? "text-emerald" : "text-coral-DEFAULT"}`}>
+            {disposable >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+            {disposable >= 0 ? "Surplus" : "Deficit"} this month
+          </p>
+        </div>
+
+        {/* Activity pills */}
+        <div className="rounded-xl p-5 border border-border bg-card card-shadow">
+          <p className="label-caps text-muted-foreground mb-3">Activity</p>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-7 h-7 rounded-full bg-surface-container flex items-center justify-center shrink-0">
+                <Handshake className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+              <span className="text-foreground">{activeLoans} active loan{activeLoans !== 1 ? "s" : ""}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-7 h-7 rounded-full bg-surface-container flex items-center justify-center shrink-0">
+                <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+              <span className="text-foreground">{pendingSplits} pending split{pendingSplits !== 1 ? "s" : ""}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <Card className="card-shadow">
-        <CardHeader>
-          <CardTitle className="text-foreground">Budget Snapshot</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <div className="flex items-center justify-between"><span className="text-muted-foreground">Salary</span><span className="font-semibold">{formatCurrency(monthlySalary)}</span></div>
-          <div className="flex items-center justify-between"><span className="text-muted-foreground">Fixed Expenses</span><span className="font-semibold">{formatCurrency(totalFixedExpenses)}</span></div>
-          <div className="flex items-center justify-between"><span className="text-muted-foreground">Disposable Income</span><span className="font-semibold">{formatCurrency(disposable)}</span></div>
-        </CardContent>
-      </Card>
-
-      <Card className="card-shadow">
-        <CardHeader>
-          <CardTitle className="text-foreground">Recent Transactions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Sender</TableHead>
-                <TableHead>Receiver</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transactions.map((tx) => (
-                <TableRow key={tx.transaction_id}>
-                  <TableCell className="font-medium">{tx.sender}</TableCell>
-                  <TableCell>{tx.receiver}</TableCell>
-                  <TableCell className="font-semibold">{formatCurrency(toNumber(tx.amount))}</TableCell>
-                  <TableCell><TypeBadge type={tx.type} /></TableCell>
-                  <TableCell><StatusBadge status={tx.status} /></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {/* Recent Transactions */}
+      <div className="bg-card rounded-xl border border-border card-shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+          <h3 className="font-display font-semibold text-foreground">Recent Transactions</h3>
+          <Link to="/transactions" className="label-caps text-primary hover:opacity-70 transition-opacity">
+            See All
+          </Link>
+        </div>
+        {transactions.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-10">No transactions yet.</p>
+        ) : (
+          <div className="divide-y divide-border">
+            {transactions.map((tx) => {
+              const isIncome = tx.type === "deposit" || tx.type === "loan";
+              return (
+                <div
+                  key={tx.transaction_id}
+                  className="flex items-center justify-between px-6 py-3 hover:bg-surface-container-low transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-base shrink-0">
+                      {txIcon[tx.type] ?? "•"}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        {tx.type === "transfer"
+                          ? `${tx.sender} → ${tx.receiver}`
+                          : tx.type === "deposit"
+                          ? "Deposit"
+                          : tx.type === "bill_split"
+                          ? "Bill Split"
+                          : tx.type === "loan"
+                          ? "Loan"
+                          : "Repayment"}
+                      </p>
+                      <p className="label-caps text-muted-foreground mt-0.5">
+                        {tx.note || tx.type.replace("_", " ")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`text-sm font-semibold font-display tabular-nums ${isIncome ? "text-emerald" : "text-foreground"}`}>
+                      {isIncome ? "+" : "-"}{formatCurrency(toNumber(tx.amount))}
+                    </p>
+                    <p className="label-caps text-muted-foreground">
+                      {new Date(tx.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

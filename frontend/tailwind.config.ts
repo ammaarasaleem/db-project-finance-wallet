@@ -15,6 +15,8 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+        display: ["Manrope", "Inter", "system-ui", "sans-serif"],
+        manrope: ["Manrope", "Inter", "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -72,6 +74,20 @@ export default {
           DEFAULT: "hsl(var(--info))",
           foreground: "hsl(var(--info-foreground))",
         },
+        /* Stitch design system extra tokens */
+        "surface-container": "hsl(var(--surface-container))",
+        "surface-container-low": "hsl(var(--surface-container-low))",
+        "surface-container-high": "hsl(var(--surface-container-high))",
+        "on-surface-variant": "hsl(var(--on-surface-variant))",
+        emerald: {
+          DEFAULT: "#4edea3",
+          soft: "#d1fae5",
+          dark: "#006c49",
+        },
+        coral: {
+          DEFAULT: "#ba1a1a",
+          soft: "#ffdad6",
+        },
         navy: {
           DEFAULT: "#0f172a",
           50: "#f0f9ff",
@@ -104,11 +120,38 @@ export default {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.7" },
         },
+        /* ── Coin / money animations ── */
+        "coin-bounce": {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "30%":       { transform: "translateY(-12px)" },
+          "60%":       { transform: "translateY(-6px)" },
+        },
+        "coin-spin": {
+          "0%":   { transform: "rotateY(0deg)" },
+          "100%": { transform: "rotateY(360deg)" },
+        },
+        "float-up": {
+          "0%":   { transform: "translateY(0px)", opacity: "0.75" },
+          "100%": { transform: "translateY(-56px)", opacity: "0" },
+        },
+        "coin-flip": {
+          "0%, 100%": { transform: "rotateY(0deg) scale(1)" },
+          "50%":       { transform: "rotateY(180deg) scale(0.85)" },
+        },
+        "sparkle": {
+          "0%, 100%": { opacity: "0", transform: "scale(0.5) rotate(0deg)" },
+          "50%":       { opacity: "1", transform: "scale(1) rotate(180deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
-        "pulse-soft": "pulse-soft 2s ease-in-out infinite",
+        "accordion-up":   "accordion-up 0.2s ease-out",
+        "pulse-soft":     "pulse-soft 2s ease-in-out infinite",
+        "coin-bounce":    "coin-bounce 2s ease-in-out infinite",
+        "coin-spin":      "coin-spin 3s linear infinite",
+        "float-up":       "float-up 3.5s ease-in infinite",
+        "coin-flip":      "coin-flip 2.4s ease-in-out infinite",
+        "sparkle":        "sparkle 1.6s ease-in-out infinite",
       },
     },
   },

@@ -1,14 +1,11 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/StatusBadge";
-import { HandCoins, Plus } from "lucide-react";
+import { HandCoins, Plus, Handshake, Coins } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +13,7 @@ import { api } from "@/lib/api";
 import { formatCurrency, toNumber } from "@/lib/format";
 
 export default function LoansPage() {
+  const [activeTab, setActiveTab] = useState<"lending" | "borrowing">("lending");
   const [requestOpen, setRequestOpen] = useState(false);
   const [lenderUsername, setLenderUsername] = useState("");
   const [amount, setAmount] = useState("");
@@ -31,151 +29,168 @@ export default function LoansPage() {
     onSuccess: async () => {
       toast.success("Loan requested");
       setRequestOpen(false);
-      setLenderUsername("");
-      setAmount("");
-      setDueDate("");
+      setLenderUsername(""); setAmount(""); setDueDate("");
       await queryClient.invalidateQueries({ queryKey: ["loans"] });
     },
-    onError: (error) => {
-      const message = error instanceof Error ? error.message : "Request failed";
-      toast.error(message);
-    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Request failed"),
   });
 
   const approveMutation = useMutation({
     mutationFn: api.loans.approve,
-    onSuccess: async () => {
-      toast.success("Loan approved");
-      await queryClient.invalidateQueries({ queryKey: ["loans"] });
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Approve failed"),
+    onSuccess: async () => { toast.success("Loan approved"); await queryClient.invalidateQueries({ queryKey: ["loans"] }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Approve failed"),
   });
 
   const repayMutation = useMutation({
     mutationFn: ({ loanId, repayAmount }: { loanId: number; repayAmount: number }) => api.loans.repay(loanId, repayAmount),
-    onSuccess: async () => {
-      toast.success("Repayment submitted");
-      await queryClient.invalidateQueries({ queryKey: ["loans"] });
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Repayment failed"),
+    onSuccess: async () => { toast.success("Repayment submitted"); await queryClient.invalidateQueries({ queryKey: ["loans"] }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Repayment failed"),
   });
 
-  const lending = loans.filter((loan) => loan.lender === me?.username);
-  const borrowing = loans.filter((loan) => loan.borrower === me?.username);
-
-  const LoanCard = ({
-    loan,
-    isBorrower,
-  }: {
-    loan: {
-      loan_id: number;
-      amount: number;
-      amount_repaid: number;
-      remaining: number;
-      due_date: string;
-      status: string;
-      lender: string;
-      borrower: string;
-    };
-    isBorrower: boolean;
-  }) => {
-    const originalAmount = toNumber(loan.amount);
-    const amountRepaid = toNumber(loan.amount_repaid);
-    const remaining = toNumber(loan.remaining);
-    const progress = originalAmount > 0 ? (amountRepaid / originalAmount) * 100 : 0;
-    const isOverdue = loan.status === "overdue";
-
-    return (
-      <Card className={`card-shadow ${isOverdue ? 'border-2 border-destructive' : ''}`}>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base text-foreground">
-              {isBorrower ? loan.lender : loan.borrower}
-            </CardTitle>
-            <StatusBadge status={loan.status} />
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div><span className="text-muted-foreground">Original:</span> <span className="font-semibold">{formatCurrency(originalAmount)}</span></div>
-            <div><span className="text-muted-foreground">Repaid:</span> <span className="font-semibold text-success">{formatCurrency(amountRepaid)}</span></div>
-            <div><span className="text-muted-foreground">Remaining:</span> <span className="font-semibold">{formatCurrency(remaining)}</span></div>
-            <div><span className="text-muted-foreground">Due:</span> <span className="font-semibold">{loan.due_date ? new Date(loan.due_date).toLocaleDateString() : "-"}</span></div>
-          </div>
-          <Progress value={progress} className="h-2" />
-          <p className="text-xs text-muted-foreground text-right">{progress.toFixed(0)}% repaid</p>
-          {isBorrower && loan.status === "active" && (
-            <Button size="sm" className="w-full" onClick={() => repayMutation.mutate({ loanId: loan.loan_id, repayAmount: remaining })}>
-              <HandCoins className="mr-2 h-4 w-4" />Repay
-            </Button>
-          )}
-          {!isBorrower && loan.status === "requested" && (
-            <Button size="sm" className="w-full" onClick={() => approveMutation.mutate(loan.loan_id)}>Approve Loan</Button>
-          )}
-        </CardContent>
-      </Card>
-    );
-  };
+  const lending = loans.filter((l) => l.lender === me?.username);
+  const borrowing = loans.filter((l) => l.borrower === me?.username);
+  const list = activeTab === "lending" ? lending : borrowing;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Loans</h2>
-          <p className="text-sm text-muted-foreground">Track lending and borrowing</p>
+          <h2 className="text-2xl font-display font-bold text-foreground">Loans</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Track lending and borrowing</p>
         </div>
         <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />Request Loan</Button>
+            <Button><Plus className="mr-2 h-4 w-4" /> Request Loan</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Request a Loan</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle className="font-display">Request a Loan</DialogTitle></DialogHeader>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                requestMutation.mutate({
-                  lender_username: lenderUsername,
-                  amount: Number(amount),
-                  due_date: dueDate || undefined,
-                });
+                requestMutation.mutate({ lender_username: lenderUsername, amount: Number(amount), due_date: dueDate || undefined });
               }}
               className="space-y-4"
             >
               <div>
-                <Label>From Friend</Label>
+                <Label>Lender (friend)</Label>
                 <Select required value={lenderUsername} onValueChange={setLenderUsername}>
                   <SelectTrigger><SelectValue placeholder="Select friend" /></SelectTrigger>
                   <SelectContent>
-                    {friends.map((f) => (
-                      <SelectItem key={f.friendship_id} value={f.username}>{f.username}</SelectItem>
-                    ))}
+                    {friends.map((f) => <SelectItem key={f.friendship_id} value={f.username}>{f.username}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <div><Label>Amount</Label><Input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" placeholder="0.00" min="1" required /></div>
-              <div><Label>Due Date</Label><Input value={dueDate} onChange={(e) => setDueDate(e.target.value)} type="date" /></div>
-              <Button type="submit" className="w-full" disabled={requestMutation.isPending}>{requestMutation.isPending ? "Submitting..." : "Submit Request"}</Button>
+              <div>
+                <Label>Amount</Label>
+                <Input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" placeholder="0.00" min="1" step="any" required />
+              </div>
+              <div>
+                <Label>Due Date (optional)</Label>
+                <Input value={dueDate} onChange={(e) => setDueDate(e.target.value)} type="date" />
+              </div>
+              <Button type="submit" className="w-full" disabled={requestMutation.isPending}>
+                {requestMutation.isPending ? "Submitting..." : "Submit Request"}
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <Tabs defaultValue="lending">
-        <TabsList>
-          <TabsTrigger value="lending">I'm Lending</TabsTrigger>
-          <TabsTrigger value="borrowing">I'm Borrowing</TabsTrigger>
-        </TabsList>
-        <TabsContent value="lending" className="mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {lending.map((loan) => <LoanCard key={loan.loan_id} loan={loan} isBorrower={false} />)}
-          </div>
-        </TabsContent>
-        <TabsContent value="borrowing" className="mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {borrowing.map((loan) => <LoanCard key={loan.loan_id} loan={loan} isBorrower={true} />)}
-          </div>
-        </TabsContent>
-      </Tabs>
+      {/* Tab bar */}
+      <div className="flex gap-1 bg-surface-container-low border border-border rounded-lg p-1 w-full sm:w-fit overflow-x-auto">
+        {(["lending", "borrowing"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
+              activeTab === tab ? "bg-card text-foreground shadow-sm border border-border" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab === "lending" ? `Lending (${lending.length})` : `Borrowing (${borrowing.length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Loan cards */}
+      {list.length === 0 ? (
+        <div className="bg-card border border-border rounded-xl p-10 text-center card-shadow">
+          <Handshake className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40 animate-coin-bounce" />
+          <p className="font-display font-semibold text-foreground mb-1">No loans here</p>
+          <p className="text-sm text-muted-foreground">
+            {activeTab === "borrowing" ? "Request a loan from a friend to get started." : "Approve a loan request from a friend."}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {list.map((loan) => {
+            const isBorrower = activeTab === "borrowing";
+            const original = toNumber(loan.amount);
+            const repaid = toNumber(loan.amount_repaid);
+            const remaining = toNumber(loan.remaining);
+            const progress = original > 0 ? Math.min(100, (repaid / original) * 100) : 0;
+
+            return (
+              <div key={loan.loan_id} className="bg-card border border-border rounded-xl p-5 card-shadow space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-display font-semibold text-foreground text-base">
+                      {isBorrower ? loan.lender : loan.borrower}
+                    </p>
+                    <p className="label-caps text-muted-foreground mt-0.5">
+                      Due: {loan.due_date ? new Date(loan.due_date).toLocaleDateString() : "No deadline"}
+                    </p>
+                  </div>
+                  <StatusBadge status={loan.status} />
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div className="rounded-lg bg-surface-container-low border border-border p-3 text-center">
+                    <p className="label-caps text-muted-foreground mb-1">Total</p>
+                    <p className="font-display font-bold text-foreground tabular-nums">{formatCurrency(original)}</p>
+                  </div>
+                  <div className="rounded-lg bg-emerald-soft border border-emerald-DEFAULT/20 p-3 text-center">
+                    <p className="label-caps text-muted-foreground mb-1">Repaid</p>
+                    <p className="font-display font-bold text-emerald tabular-nums">{formatCurrency(repaid)}</p>
+                  </div>
+                  <div className="rounded-lg bg-surface-container-low border border-border p-3 text-center">
+                    <p className="label-caps text-muted-foreground mb-1">Left</p>
+                    <p className="font-display font-bold text-foreground tabular-nums">{formatCurrency(remaining)}</p>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div>
+                  <div className="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-emerald-DEFAULT transition-all" style={{ width: `${progress}%` }} />
+                  </div>
+                  <div className="flex items-center justify-end gap-1.5 mt-1">
+                    {progress >= 100 && (
+                      <Coins className="h-3.5 w-3.5 text-amber-500 animate-coin-spin" style={{ perspective: "200px" }} />
+                    )}
+                    <p className="text-xs text-muted-foreground">{progress.toFixed(0)}% repaid</p>
+                  </div>
+                </div>
+
+                {isBorrower && loan.status === "active" && (
+                  <Button
+                    className="w-full"
+                    onClick={() => repayMutation.mutate({ loanId: loan.loan_id, repayAmount: remaining })}
+                    disabled={repayMutation.isPending}
+                  >
+                    <HandCoins className="mr-2 h-4 w-4" /> Repay {formatCurrency(remaining)}
+                  </Button>
+                )}
+                {!isBorrower && loan.status === "requested" && (
+                  <Button className="w-full" onClick={() => approveMutation.mutate(loan.loan_id)} disabled={approveMutation.isPending}>
+                    Approve Loan
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

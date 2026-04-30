@@ -72,7 +72,7 @@ function AddMemberForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <div className="flex-1">
           <Label className="text-xs mb-1 block">Username</Label>
           <Input
@@ -82,7 +82,7 @@ function AddMemberForm({
             required
           />
         </div>
-        <div className="w-28">
+        <div className="sm:w-28">
           <Label className="text-xs mb-1 block">Turn Order</Label>
           <Input
             value={turnOrder}
@@ -95,9 +95,9 @@ function AddMemberForm({
           />
         </div>
         <div className="flex items-end">
-          <Button type="submit" size="sm" disabled={addMutation.isPending}>
+          <Button type="submit" size="sm" className="w-full sm:w-auto" disabled={addMutation.isPending}>
             <UserPlus className="h-4 w-4 mr-1" />
-            {addMutation.isPending ? "Adding…" : "Add"}
+            {addMutation.isPending ? "Adding…" : "Add Member"}
           </Button>
         </div>
       </div>
@@ -248,9 +248,9 @@ export default function KhataGroupsPage() {
   return (
     <div className="space-y-6">
       {/* ── Page header ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Khata Groups</h2>
+          <h2 className="text-2xl font-display font-bold text-foreground">Khata Groups</h2>
           <p className="text-sm text-muted-foreground">Rotating savings committees</p>
         </div>
 
@@ -260,7 +260,7 @@ export default function KhataGroupsPage() {
             <Button><Plus className="mr-2 h-4 w-4" />Create Group</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Create Khata Group</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle className="font-display">Create Khata Group</DialogTitle></DialogHeader>
             <form onSubmit={handleCreateSubmit} className="space-y-4">
               <div>
                 <Label>Group Name</Label>
@@ -326,7 +326,7 @@ export default function KhataGroupsPage() {
                     <Users className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <CardTitle className="text-base text-foreground">{group.Name}</CardTitle>
+                    <CardTitle className="text-base font-display font-semibold text-foreground">{group.Name}</CardTitle>
                     <p className="text-xs text-muted-foreground">
                       {group.CycleType} · Cycle #{cycle} · Creator: {group.creator}
                     </p>
@@ -462,30 +462,32 @@ export default function KhataGroupsPage() {
                       {(contributionsQuery.data || []).length === 0 ? (
                         <p className="text-xs text-muted-foreground">No contributions recorded yet.</p>
                       ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Member</TableHead>
-                              <TableHead>Cycle</TableHead>
-                              <TableHead>Amount</TableHead>
-                              <TableHead>Paid On</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {(contributionsQuery.data || []).map((c, i) => (
-                              <TableRow key={`${c.username}-${c.CycleNumber}-${i}`}>
-                                <TableCell className="font-medium">{c.username}</TableCell>
-                                <TableCell>#{c.CycleNumber}</TableCell>
-                                <TableCell className="font-semibold">
-                                  {formatCurrency(toNumber(c.AmountPaid))}
-                                </TableCell>
-                                <TableCell className="text-xs text-muted-foreground">
-                                  {c.PaidOn ? new Date(c.PaidOn).toLocaleDateString() : "—"}
-                                </TableCell>
+                        <div className="overflow-x-auto rounded-lg border border-border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Member</TableHead>
+                                <TableHead>Cycle</TableHead>
+                                <TableHead>Amount</TableHead>
+                                <TableHead>Paid On</TableHead>
                               </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                            </TableHeader>
+                            <TableBody>
+                              {(contributionsQuery.data || []).map((c, i) => (
+                                <TableRow key={`${c.username}-${c.CycleNumber}-${i}`}>
+                                  <TableCell className="font-medium">{c.username}</TableCell>
+                                  <TableCell>#{c.CycleNumber}</TableCell>
+                                  <TableCell className="font-semibold">
+                                    {formatCurrency(toNumber(c.AmountPaid))}
+                                  </TableCell>
+                                  <TableCell className="text-xs text-muted-foreground">
+                                    {c.PaidOn ? new Date(c.PaidOn).toLocaleDateString() : "—"}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
                       )}
                     </div>
 

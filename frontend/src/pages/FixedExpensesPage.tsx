@@ -1,33 +1,32 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit2, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { Plus, Edit2, TrendingUp, TrendingDown, DollarSign, BarChart2 } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatCurrency, toNumber } from "@/lib/format";
 
-const categoryColors: Record<string, string> = {
-  Housing: "bg-primary text-primary-foreground",
-  Utilities: "bg-info text-info-foreground",
-  Subscriptions: "bg-violet-500 text-primary-foreground",
-  Health: "bg-success text-success-foreground",
-  Insurance: "bg-warning text-warning-foreground",
-  General: "bg-muted text-muted-foreground",
+const CATEGORIES = ["Housing", "Utilities", "Subscriptions", "Health", "Insurance", "General"];
+
+const categoryBadge: Record<string, string> = {
+  Housing:       "bg-primary/10 text-primary",
+  Utilities:     "bg-info/10 text-info-foreground",
+  Subscriptions: "bg-violet-100 text-violet-700",
+  Health:        "bg-emerald-soft text-emerald",
+  Insurance:     "bg-yellow-100 text-yellow-700",
+  General:       "bg-surface-container text-muted-foreground",
 };
 
-const pieColors = ["hsl(224, 76%, 48%)", "hsl(199, 89%, 60%)", "hsl(270, 60%, 55%)", "hsl(142, 76%, 36%)", "hsl(38, 92%, 50%)"];
+const PIE_COLORS = ["#131b2e","#4edea3","#8b5cf6","#10b981","#f59e0b","#64748b"];
 
 export default function FixedExpensesPage() {
-  // ── Add Expense dialog
+  // Add expense state
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
@@ -35,7 +34,7 @@ export default function FixedExpensesPage() {
   const [dueDay, setDueDay] = useState("");
   const [amountError, setAmountError] = useState("");
 
-  // ── Edit Salary dialog
+  // Edit salary state
   const [salaryOpen, setSalaryOpen] = useState(false);
   const [salaryAmt, setSalaryAmt] = useState("");
   const [salaryCurrency, setSalaryCurrency] = useState("USD");
@@ -45,21 +44,14 @@ export default function FixedExpensesPage() {
 
   const queryClient = useQueryClient();
 
-  const { data: salary } = useQuery({
-    queryKey: ["salary"],
-    queryFn: api.finance.getSalary,
-    retry: false,
-  });
-  const { data: fixedExpenses = [] } = useQuery({
-    queryKey: ["expenses"],
-    queryFn: api.finance.getExpenses,
-  });
+  const { data: salary } = useQuery({ queryKey: ["salary"], queryFn: api.finance.getSalary, retry: false });
+  const { data: fixedExpenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: api.finance.getExpenses });
 
-  // ── Salary mutation (BUG #4)
+  // Salary mutation
   const salaryMutation = useMutation({
     mutationFn: api.finance.setSalary,
     onSuccess: async () => {
-      toast.success("Salary saved successfully");
+      toast.success("Salary saved");
       setSalaryOpen(false);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["salary"] }),
@@ -67,82 +59,62 @@ export default function FixedExpensesPage() {
         queryClient.invalidateQueries({ queryKey: ["wallet-summary"] }),
       ]);
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Save failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
   });
 
   const handleSalaryOpen = () => {
     setSalaryAmt(salary?.amount ? String(salary.amount) : "");
     setSalaryCurrency(salary?.currency || "USD");
     setSalaryPayDay(salary?.pay_day ? String(salary.pay_day) : "");
-    setSalaryAmtError("");
-    setSalaryPayDayError("");
+    setSalaryAmtError(""); setSalaryPayDayError("");
     setSalaryOpen(true);
   };
 
   const handleSalarySave = (e: React.FormEvent) => {
     e.preventDefault();
-    setSalaryAmtError("");
-    setSalaryPayDayError("");
+    setSalaryAmtError(""); setSalaryPayDayError("");
     const parsed = parseFloat(salaryAmt);
     const parsedDay = parseInt(salaryPayDay, 10);
     let valid = true;
-    if (!salaryAmt || isNaN(parsed) || parsed <= 0) {
-      setSalaryAmtError("Enter a valid salary amount greater than zero.");
-      valid = false;
-    }
-    if (!salaryPayDay || isNaN(parsedDay) || parsedDay < 1 || parsedDay > 31) {
-      setSalaryPayDayError("Pay day must be between 1 and 31.");
-      valid = false;
-    }
+    if (!salaryAmt || isNaN(parsed) || parsed <= 0) { setSalaryAmtError("Enter a valid salary amount greater than zero."); valid = false; }
+    if (!salaryPayDay || isNaN(parsedDay) || parsedDay < 1 || parsedDay > 31) { setSalaryPayDayError("Pay day must be between 1 and 31."); valid = false; }
     if (!valid) return;
     salaryMutation.mutate({ amount: parsed, currency: salaryCurrency, pay_day: parsedDay });
   };
 
-  // ── Add Expense mutation (BUG #3 — use parseFloat not Number so integers pass)
+  // Add expense mutation
   const addMutation = useMutation({
     mutationFn: api.finance.addExpense,
     onSuccess: async () => {
       toast.success("Expense added");
       setAddOpen(false);
-      setTitle("");
-      setAmount("");
-      setCategory("General");
-      setDueDay("");
-      setAmountError("");
+      setTitle(""); setAmount(""); setCategory("General"); setDueDay(""); setAmountError("");
       await queryClient.invalidateQueries({ queryKey: ["expenses"] });
       await queryClient.invalidateQueries({ queryKey: ["finance-overview"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Add failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Add failed"),
   });
 
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
     setAmountError("");
     const parsedAmt = parseFloat(amount);
-    if (!amount || isNaN(parsedAmt) || parsedAmt <= 0) {
-      setAmountError("Please enter a valid amount greater than zero.");
-      return;
-    }
+    if (!amount || isNaN(parsedAmt) || parsedAmt <= 0) { setAmountError("Please enter a valid amount greater than zero."); return; }
     addMutation.mutate({ title, amount: parsedAmt, category, due_day: Number(dueDay) });
   };
 
-  // ── Toggle expense active
+  // Toggle active mutation
   const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      payload,
-    }: {
-      id: number;
-      payload: Partial<{ title: string; amount: number; category: string; due_day: number; is_active: boolean }>;
-    }) => api.finance.updateExpense(id, payload),
+    mutationFn: ({ id, payload }: { id: number; payload: Partial<{ title: string; amount: number; category: string; due_day: number; is_active: boolean }> }) =>
+      api.finance.updateExpense(id, payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["expenses"] });
       await queryClient.invalidateQueries({ queryKey: ["finance-overview"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Update failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
   });
 
-  // ── Derived values for summary panel (BUG #5)
+  // Derived
   const active = fixedExpenses.filter((e) => e.is_active);
   const totalExpenses = active.reduce((sum, e) => sum + toNumber(e.amount), 0);
   const salaryNum = toNumber(salary?.amount) || 0;
@@ -150,296 +122,216 @@ export default function FixedExpensesPage() {
   const expenseRatio = salaryNum > 0 ? ((totalExpenses / salaryNum) * 100).toFixed(1) : null;
 
   const categoryData = Object.entries(
-    active.reduce<Record<string, number>>((acc, e) => {
-      acc[e.category] = (acc[e.category] || 0) + toNumber(e.amount);
-      return acc;
-    }, {})
+    active.reduce<Record<string, number>>((acc, e) => { acc[e.category] = (acc[e.category] || 0) + toNumber(e.amount); return acc; }, {})
   ).map(([name, value]) => ({ name, value }));
 
   return (
     <div className="space-y-6">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Fixed Expenses</h2>
-          <p className="text-sm text-muted-foreground">Manage salary and recurring expenses</p>
+          <h2 className="text-2xl font-display font-bold text-foreground">Fixed Expenses</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage salary and recurring expenses</p>
         </div>
-
-        {/* Add Expense Dialog */}
-        <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) setAmountError(""); }}>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />Add Expense</Button>
+            <Button><Plus className="mr-2 h-4 w-4" /> Add Expense</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Add Fixed Expense</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle className="font-display">Add Fixed Expense</DialogTitle></DialogHeader>
             <form onSubmit={handleAddExpense} className="space-y-4">
-              <div>
-                <Label>Title</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Rent" required />
-              </div>
+              <div><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Netflix, Rent" required /></div>
               <div>
                 <Label>Amount</Label>
-                {/* BUG #3 FIX: step="any" allows whole numbers AND decimals */}
-                <Input
-                  value={amount}
-                  onChange={(e) => { setAmount(e.target.value); setAmountError(""); }}
-                  type="number"
-                  placeholder="e.g. 500 or 1200.50"
-                  min="0.01"
-                  step="any"
-                  required
-                />
+                <Input value={amount} onChange={(e) => { setAmount(e.target.value); setAmountError(""); }} type="number" placeholder="e.g. 500 or 99.99" min="0.01" step="any" required />
                 {amountError && <p className="text-sm text-destructive mt-1">{amountError}</p>}
               </div>
               <div>
                 <Label>Category</Label>
-                <Select required value={category} onValueChange={setCategory}>
-                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                  <SelectContent>
-                    {["Housing", "Utilities", "Subscriptions", "Health", "Insurance", "General"].map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Due Day of Month (1–31)</Label>
-                <Input
-                  value={dueDay}
-                  onChange={(e) => setDueDay(e.target.value)}
-                  type="number" min="1" max="31" step="1"
-                  placeholder="e.g. 1"
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={addMutation.isPending}>
-                {addMutation.isPending ? "Adding…" : "Add Expense"}
-              </Button>
+              <div><Label>Due Day (1–31)</Label><Input value={dueDay} onChange={(e) => setDueDay(e.target.value)} type="number" min="1" max="31" step="1" placeholder="e.g. 1" required /></div>
+              <Button type="submit" className="w-full" disabled={addMutation.isPending}>{addMutation.isPending ? "Adding..." : "Add Expense"}</Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* ── Top row: Salary card + Pie chart ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* BUG #4 FIX: Salary card — Edit button is now enabled with full dialog */}
-        <Card className="card-shadow bg-primary text-primary-foreground">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-primary-foreground/80">Fixed Monthly Salary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{formatCurrency(salaryNum)}</div>
-            <p className="text-xs text-primary-foreground/60 mt-1">
-              Pay day: {salary?.pay_day ?? "—"} &nbsp;·&nbsp; {salary?.currency ?? "USD"}
+      {/* Summary row */}
+      {salaryNum > 0 ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-card border border-border rounded-xl p-5 card-shadow">
+            <p className="label-caps text-muted-foreground mb-2">Monthly Salary</p>
+            <p className="text-2xl font-display font-bold text-foreground tabular-nums">{formatCurrency(salaryNum)}</p>
+          </div>
+          <div className="bg-card border border-border rounded-xl p-5 card-shadow">
+            <p className="label-caps text-muted-foreground mb-2">Total Expenses</p>
+            <p className="text-2xl font-display font-bold text-foreground tabular-nums">{formatCurrency(totalExpenses)}</p>
+            {expenseRatio && (
+              <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden mt-2">
+                <div className="h-full rounded-full bg-red-400" style={{ width: `${Math.min(100, parseFloat(expenseRatio))}%` }} />
+              </div>
+            )}
+          </div>
+          <div className="bg-card border border-border rounded-xl p-5 card-shadow">
+            <div className="flex items-center gap-1 mb-2">
+              {disposable >= 0 ? <TrendingUp className="h-3.5 w-3.5 text-emerald" /> : <TrendingDown className="h-3.5 w-3.5 text-coral-DEFAULT" />}
+              <p className="label-caps text-muted-foreground">Disposable Income</p>
+            </div>
+            <p className={`text-2xl font-display font-bold tabular-nums ${disposable >= 0 ? "text-emerald" : "text-coral-DEFAULT"}`}>
+              {formatCurrency(disposable)}
             </p>
-            <p className="text-xs text-primary-foreground/50 mt-1 italic">
-              Used to calculate disposable income after fixed expenses.
+          </div>
+          <div className="bg-card border border-border rounded-xl p-5 card-shadow">
+            <p className="label-caps text-muted-foreground mb-2">Expense Ratio</p>
+            <p className={`text-2xl font-display font-bold ${expenseRatio && parseFloat(expenseRatio) > 80 ? "text-coral-DEFAULT" : "text-foreground"}`}>
+              {expenseRatio ? `${expenseRatio}%` : "—"}
             </p>
+            <p className="text-xs text-muted-foreground mt-1">of salary</p>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-card border border-dashed border-border rounded-xl p-8 text-center card-shadow">
+          <DollarSign className="h-9 w-9 text-muted-foreground mx-auto mb-3 opacity-40" />
+          <p className="font-display font-semibold text-foreground mb-1">Set your monthly salary</p>
+          <p className="text-sm text-muted-foreground mb-4">Track disposable income and expense ratios in one place.</p>
+          <Button variant="outline" onClick={handleSalaryOpen}><Edit2 className="mr-2 h-4 w-4" /> Set Salary</Button>
+        </div>
+      )}
 
-            {/* Edit / Set Salary Dialog */}
-            <Dialog open={salaryOpen} onOpenChange={(o) => { setSalaryOpen(o); if (!o) { setSalaryAmtError(""); setSalaryPayDayError(""); } }}>
+      {/* Salary card + Chart row */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Salary card */}
+        <div className="lg:col-span-5 bg-card border border-border rounded-xl p-5 card-shadow flex flex-col gap-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="label-caps text-muted-foreground mb-1">Monthly Salary</p>
+              {salary ? (
+                <>
+                  <p className="text-3xl font-display font-bold text-foreground tabular-nums">{formatCurrency(toNumber(salary.amount))}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Pay day: {salary.pay_day} · {salary.currency}</p>
+                </>
+              ) : (
+                <p className="text-2xl font-display font-bold text-muted-foreground">Not set</p>
+              )}
+            </div>
+            <Dialog open={salaryOpen} onOpenChange={setSalaryOpen}>
               <DialogTrigger asChild>
-                <Button variant="secondary" size="sm" className="mt-3" onClick={handleSalaryOpen}>
-                  <Edit2 className="mr-2 h-3 w-3" />{salary ? "Edit Salary" : "Set Salary"}
+                <Button variant="outline" size="sm" onClick={handleSalaryOpen}>
+                  <Edit2 className="mr-1.5 h-3.5 w-3.5" />{salary ? "Edit" : "Set Salary"}
                 </Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{salary ? "Edit Monthly Salary" : "Set Monthly Salary"}</DialogTitle>
-                </DialogHeader>
+                <DialogHeader><DialogTitle className="font-display">{salary ? "Edit Monthly Salary" : "Set Monthly Salary"}</DialogTitle></DialogHeader>
                 <form onSubmit={handleSalarySave} className="space-y-4">
                   <div>
                     <Label>Monthly Amount</Label>
-                    <Input
-                      value={salaryAmt}
-                      onChange={(e) => { setSalaryAmt(e.target.value); setSalaryAmtError(""); }}
-                      type="number"
-                      placeholder="e.g. 3000 or 3500.50"
-                      min="0.01"
-                      step="any"
-                      required
-                    />
+                    <Input value={salaryAmt} onChange={(e) => { setSalaryAmt(e.target.value); setSalaryAmtError(""); }} type="number" placeholder="e.g. 3000 or 3500.50" min="0.01" step="any" required />
                     {salaryAmtError && <p className="text-sm text-destructive mt-1">{salaryAmtError}</p>}
                   </div>
                   <div>
                     <Label>Currency</Label>
                     <Select value={salaryCurrency} onValueChange={setSalaryCurrency}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {["USD", "EUR", "GBP", "PKR", "AED", "SAR"].map((c) => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
-                      </SelectContent>
+                      <SelectContent>{["USD","EUR","GBP","PKR","AED","SAR"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>
                     <Label>Pay Day (1–31)</Label>
-                    <Input
-                      value={salaryPayDay}
-                      onChange={(e) => { setSalaryPayDay(e.target.value); setSalaryPayDayError(""); }}
-                      type="number" min="1" max="31" step="1"
-                      placeholder="e.g. 25"
-                      required
-                    />
+                    <Input value={salaryPayDay} onChange={(e) => { setSalaryPayDay(e.target.value); setSalaryPayDayError(""); }} type="number" min="1" max="31" step="1" placeholder="e.g. 25" required />
                     {salaryPayDayError && <p className="text-sm text-destructive mt-1">{salaryPayDayError}</p>}
                   </div>
                   <div className="flex gap-2">
-                    <Button type="button" variant="outline" className="flex-1" onClick={() => setSalaryOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" className="flex-1" disabled={salaryMutation.isPending}>
-                      {salaryMutation.isPending ? "Saving…" : "Save Salary"}
-                    </Button>
+                    <Button type="button" variant="outline" className="flex-1" onClick={() => setSalaryOpen(false)}>Cancel</Button>
+                    <Button type="submit" className="flex-1" disabled={salaryMutation.isPending}>{salaryMutation.isPending ? "Saving..." : "Save Salary"}</Button>
                   </div>
                 </form>
               </DialogContent>
             </Dialog>
-          </CardContent>
-        </Card>
+          </div>
+          {salary && (
+            <p className="text-sm text-muted-foreground">
+              Salary is used to calculate your disposable income after fixed expenses.
+            </p>
+          )}
+        </div>
 
-        <Card className="card-shadow lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-foreground">Expense Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {categoryData.length === 0 ? (
-              <div className="flex items-center justify-center h-[220px] text-muted-foreground text-sm">
-                No active expenses to display.
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3}>
-                    {categoryData.map((_, i) => (
-                      <Cell key={i} fill={pieColors[i % pieColors.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
+        {/* Pie chart */}
+        <div className="lg:col-span-7 bg-card border border-border rounded-xl p-5 card-shadow">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart2 className="h-4 w-4 text-muted-foreground" />
+            <h3 className="font-display font-semibold text-foreground">Expense Breakdown</h3>
+          </div>
+          {categoryData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-40 text-muted-foreground text-sm gap-2">
+              <BarChart2 className="h-8 w-8 opacity-30" />
+              <span>No active expenses to display</span>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                  {categoryData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
       </div>
 
-      {/* ── BUG #5 FIX: Financial Summary Panel ── */}
-      {salaryNum > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="card-shadow">
-            <CardContent className="pt-5">
-              <div className="flex items-center gap-2 mb-1">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">Monthly Salary</span>
-              </div>
-              <p className="text-xl font-bold text-foreground">{formatCurrency(salaryNum)}</p>
-            </CardContent>
-          </Card>
-
-          <Card className="card-shadow">
-            <CardContent className="pt-5">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">Total Expenses</span>
-              </div>
-              <p className="text-xl font-bold text-foreground">{formatCurrency(totalExpenses)}</p>
-            </CardContent>
-          </Card>
-
-          <Card className="card-shadow">
-            <CardContent className="pt-5">
-              <div className="flex items-center gap-2 mb-1">
-                {disposable >= 0
-                  ? <TrendingUp className="h-4 w-4 text-green-500" />
-                  : <TrendingDown className="h-4 w-4 text-destructive" />}
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">Disposable Income</span>
-              </div>
-              <p className={`text-xl font-bold ${disposable >= 0 ? "text-green-600" : "text-destructive"}`}>
-                {formatCurrency(disposable)}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="card-shadow">
-            <CardContent className="pt-5">
-              <span className="text-xs text-muted-foreground uppercase tracking-wide">Expense Ratio</span>
-              <p className={`text-xl font-bold mt-1 ${expenseRatio && parseFloat(expenseRatio) > 80 ? "text-destructive" : "text-foreground"}`}>
-                {expenseRatio ? `${expenseRatio}%` : "—"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">of salary spent</p>
-            </CardContent>
-          </Card>
+      {/* Expenses table */}
+      <div className="bg-card border border-border rounded-xl card-shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+          <h3 className="font-display font-semibold text-foreground">Fixed Expenses</h3>
+          <span className="text-sm text-muted-foreground">
+            Total active: <span className="font-bold text-foreground">{formatCurrency(totalExpenses)}</span>
+          </span>
         </div>
-      ) : (
-        <Card className="card-shadow border-dashed">
-          <CardContent className="py-6 text-center">
-            <DollarSign className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm font-medium text-foreground">Set your monthly salary to see your financial health</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Click "Set Salary" on the card above to track disposable income and expense ratios.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ── Expenses Table ── */}
-      <Card className="card-shadow">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-foreground">Fixed Expenses</CardTitle>
-            <span className="text-sm text-muted-foreground">
-              Total active: <span className="font-bold text-foreground">{formatCurrency(totalExpenses)}</span>
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {fixedExpenses.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">No expenses added yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Due Day</TableHead>
-                  <TableHead>Active</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {fixedExpenses.map(exp => (
-                  <TableRow key={exp.expense_id}>
-                    <TableCell className="font-medium">{exp.title}</TableCell>
-                    <TableCell className="font-semibold">{formatCurrency(toNumber(exp.amount))}</TableCell>
-                    <TableCell>
-                      <Badge className={`text-xs ${categoryColors[exp.category] || categoryColors.General}`}>
+        {fixedExpenses.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-10">No expenses added yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-surface-container-low">
+                  <th className="text-left px-6 py-3 label-caps text-muted-foreground">Title</th>
+                  <th className="text-right px-6 py-3 label-caps text-muted-foreground">Amount</th>
+                  <th className="text-left px-6 py-3 label-caps text-muted-foreground">Category</th>
+                  <th className="text-left px-6 py-3 label-caps text-muted-foreground">Due Day</th>
+                  <th className="text-left px-6 py-3 label-caps text-muted-foreground">Active</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {fixedExpenses.map((exp) => (
+                  <tr key={exp.expense_id} className={`hover:bg-surface-container-low transition-colors ${!exp.is_active ? "opacity-50" : ""}`}>
+                    <td className="px-6 py-3 font-medium text-foreground">{exp.title}</td>
+                    <td className="px-6 py-3 text-right font-display font-semibold tabular-nums text-foreground">{formatCurrency(toNumber(exp.amount))}</td>
+                    <td className="px-6 py-3">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${categoryBadge[exp.category] || categoryBadge.General}`}>
                         {exp.category}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{exp.due_day}</TableCell>
-                    <TableCell>
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 text-foreground">{exp.due_day}</td>
+                    <td className="px-6 py-3">
                       <Switch
                         checked={Boolean(exp.is_active)}
                         onCheckedChange={(checked) =>
-                          updateMutation.mutate({
-                            id: exp.expense_id,
-                            payload: {
-                              title: exp.title,
-                              amount: toNumber(exp.amount),
-                              category: exp.category,
-                              due_day: exp.due_day,
-                              is_active: checked,
-                            },
-                          })
+                          updateMutation.mutate({ id: exp.expense_id, payload: { title: exp.title, amount: toNumber(exp.amount), category: exp.category, due_day: exp.due_day, is_active: checked } })
                         }
                       />
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

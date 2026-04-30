@@ -1,88 +1,67 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Trophy, AlertTriangle } from "lucide-react";
+import { Plus, Trophy, AlertTriangle, Vault, Coins } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatCurrency, toNumber } from "@/lib/format";
 
-function CircularProgress({ percentage }: { percentage: number }) {
-  const radius = 40;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
-
-  return (
-    <div className="relative inline-flex items-center justify-center">
-      <svg width="96" height="96" viewBox="0 0 96 96">
-        <circle cx="48" cy="48" r={radius} fill="none" stroke="hsl(214 32% 91%)" strokeWidth="6" />
-        <circle cx="48" cy="48" r={radius} fill="none" stroke="hsl(224, 76%, 48%)" strokeWidth="6"
-          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-          transform="rotate(-90 48 48)" className="transition-all duration-500"
-        />
-      </svg>
-      <span className="absolute text-sm font-bold text-foreground">{percentage.toFixed(0)}%</span>
-    </div>
-  );
-}
-
 export default function SavingVaultsPage() {
   const [createOpen, setCreateOpen] = useState(false);
-  const [depositVault, setDepositVault] = useState<number | null>(null);
+  const [depositVaultId, setDepositVaultId] = useState<number | null>(null);
   const [vaultName, setVaultName] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
   const [deadline, setDeadline] = useState("");
   const [depositAmount, setDepositAmount] = useState("");
   const queryClient = useQueryClient();
 
-  const { data: savingVaults = [] } = useQuery({ queryKey: ["vaults"], queryFn: api.vaults.getAll });
+  const { data: vaults = [] } = useQuery({ queryKey: ["vaults"], queryFn: api.vaults.getAll });
 
   const createMutation = useMutation({
     mutationFn: api.vaults.create,
     onSuccess: async () => {
       toast.success("Vault created");
       setCreateOpen(false);
-      setVaultName("");
-      setTargetAmount("");
-      setDeadline("");
+      setVaultName(""); setTargetAmount(""); setDeadline("");
       await queryClient.invalidateQueries({ queryKey: ["vaults"] });
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Create failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Create failed"),
   });
 
   const depositMutation = useMutation({
     mutationFn: ({ id, amount }: { id: number; amount: number }) => api.vaults.deposit(id, amount),
     onSuccess: async () => {
       toast.success("Deposit successful");
-      setDepositVault(null);
+      setDepositVaultId(null);
       setDepositAmount("");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["vaults"] }),
         queryClient.invalidateQueries({ queryKey: ["wallet"] }),
+        queryClient.invalidateQueries({ queryKey: ["wallet-summary"] }),
       ]);
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Deposit failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Deposit failed"),
   });
 
   const today = new Date();
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Saving Vaults</h2>
-          <p className="text-sm text-muted-foreground">Track your savings goals</p>
+          <h2 className="text-2xl font-display font-bold text-foreground">Saving Vaults</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Track and grow your savings goals</p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />New Vault</Button>
+            <Button><Plus className="mr-2 h-4 w-4" /> New Vault</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Create Saving Vault</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle className="font-display">Create Saving Vault</DialogTitle></DialogHeader>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -91,60 +70,131 @@ export default function SavingVaultsPage() {
               className="space-y-4"
             >
               <div><Label>Vault Name</Label><Input value={vaultName} onChange={(e) => setVaultName(e.target.value)} placeholder="e.g. Vacation Fund" required /></div>
-              <div><Label>Target Amount</Label><Input value={targetAmount} onChange={(e) => setTargetAmount(e.target.value)} type="number" placeholder="0.00" min="1" required /></div>
-              <div><Label>Deadline</Label><Input value={deadline} onChange={(e) => setDeadline(e.target.value)} type="date" /></div>
-              <Button type="submit" className="w-full" disabled={createMutation.isPending}>{createMutation.isPending ? "Creating..." : "Create Vault"}</Button>
+              <div><Label>Target Amount</Label><Input value={targetAmount} onChange={(e) => setTargetAmount(e.target.value)} type="number" placeholder="0.00" min="1" step="any" required /></div>
+              <div><Label>Deadline (optional)</Label><Input value={deadline} onChange={(e) => setDeadline(e.target.value)} type="date" /></div>
+              <Button type="submit" className="w-full" disabled={createMutation.isPending}>
+                {createMutation.isPending ? "Creating..." : "Create Vault"}
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
+      {/* Empty state */}
+      {vaults.length === 0 && (
+        <div className="bg-card border border-border rounded-xl p-10 text-center card-shadow">
+          <Vault className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40 animate-coin-bounce" />
+          <p className="font-display font-semibold text-foreground mb-1">No vaults yet</p>
+          <p className="text-sm text-muted-foreground mb-4">Create your first savings goal to start tracking progress.</p>
+          <Button onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" /> New Vault</Button>
+        </div>
+      )}
+
+      {/* Vault cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {savingVaults.map(vault => {
-          const percentage = Math.min((toNumber(vault.savedAmount) / toNumber(vault.targetAmount)) * 100, 100);
-          const achieved = Boolean(vault.isAchieved) || toNumber(vault.savedAmount) >= toNumber(vault.targetAmount);
+        {vaults.map((vault) => {
+          const saved = toNumber(vault.savedAmount);
+          const target = toNumber(vault.targetAmount);
+          const progress = target > 0 ? Math.min(100, (saved / target) * 100) : 0;
+          const achieved = Boolean(vault.isAchieved) || saved >= target;
           const overdue = !achieved && vault.deadline && new Date(vault.deadline) < today;
+          const circumference = 2 * Math.PI * 32;
+          const offset = circumference - (progress / 100) * circumference;
 
           return (
-            <Card key={vault.id} className="card-shadow text-center">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base text-foreground">{vault.vault_name}</CardTitle>
-                  {achieved && <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200"><Trophy className="h-3 w-3 mr-1" />Achieved</Badge>}
-                  {overdue && <Badge variant="destructive" className="text-xs"><AlertTriangle className="h-3 w-3 mr-1" />Overdue</Badge>}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <CircularProgress percentage={percentage} />
-                <div className="text-sm space-y-1">
-                  <div><span className="text-muted-foreground">Saved:</span> <span className="font-bold text-foreground">{formatCurrency(toNumber(vault.savedAmount))}</span></div>
-                  <div><span className="text-muted-foreground">Target:</span> <span className="font-semibold">{formatCurrency(toNumber(vault.targetAmount))}</span></div>
-                  <div className="text-xs text-muted-foreground">Deadline: {vault.deadline ? new Date(vault.deadline).toLocaleDateString() : "-"}</div>
-                </div>
-                {!achieved && (
-                  <>
-                    <Dialog open={depositVault === vault.id} onOpenChange={open => setDepositVault(open ? vault.id : null)}>
-                      <DialogTrigger asChild>
-                        <Button size="sm" className="w-full">Deposit</Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader><DialogTitle>Deposit to {vault.vault_name}</DialogTitle></DialogHeader>
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            depositMutation.mutate({ id: vault.id, amount: Number(depositAmount) });
-                          }}
-                          className="space-y-4"
-                        >
-                          <div><Label>Amount</Label><Input value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} type="number" placeholder="0.00" min="0.01" step="0.01" required /></div>
-                          <Button type="submit" className="w-full" disabled={depositMutation.isPending}>{depositMutation.isPending ? "Depositing..." : "Confirm Deposit"}</Button>
-                        </form>
-                      </DialogContent>
-                    </Dialog>
-                  </>
+            <div key={vault.id} className="bg-card border border-border rounded-xl p-5 card-shadow flex flex-col gap-4">
+              {/* Title + badge */}
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-display font-semibold text-foreground">{vault.vault_name}</h3>
+                {achieved && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs font-semibold shrink-0 border border-yellow-200">
+                    <Trophy className="h-3 w-3 animate-coin-bounce" />
+                    Goal reached!
+                    <Coins className="h-3 w-3 animate-coin-flip" />
+                  </span>
                 )}
-              </CardContent>
-            </Card>
+                {overdue && !achieved && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-coral-soft text-coral-DEFAULT text-xs font-medium shrink-0">
+                    <AlertTriangle className="h-3 w-3" /> Overdue
+                  </span>
+                )}
+              </div>
+
+              {/* Progress ring + stats */}
+              <div className="flex items-center gap-4">
+                <div className="relative w-20 h-20 shrink-0">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 72 72">
+                    <circle cx="36" cy="36" r="32" fill="none" stroke="hsl(var(--surface-container-high))" strokeWidth="6" />
+                    <circle
+                      cx="36" cy="36" r="32" fill="none"
+                      stroke={achieved ? "hsl(38,92%,50%)" : "hsl(var(--primary))"}
+                      strokeWidth="6"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={offset}
+                      strokeLinecap="round"
+                      className="transition-all duration-500"
+                    />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-sm font-display font-bold text-foreground">
+                    {Math.round(progress)}%
+                  </span>
+                </div>
+                <div className="space-y-1 text-sm">
+                  <div>
+                    <p className="label-caps text-muted-foreground">Saved</p>
+                    <p className="font-display font-bold text-emerald tabular-nums">{formatCurrency(saved)}</p>
+                  </div>
+                  <div>
+                    <p className="label-caps text-muted-foreground">Target</p>
+                    <p className="font-display font-semibold text-foreground tabular-nums">{formatCurrency(target)}</p>
+                  </div>
+                  {vault.deadline && (
+                    <p className="text-xs text-muted-foreground">
+                      Due {new Date(vault.deadline).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Deposit button */}
+              {!achieved && (
+                <Dialog
+                  open={depositVaultId === vault.id}
+                  onOpenChange={(open) => setDepositVaultId(open ? vault.id : null)}
+                >
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="w-full">Deposit to Vault</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle className="font-display">Deposit to "{vault.vault_name}"</DialogTitle>
+                    </DialogHeader>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        depositMutation.mutate({ id: vault.id, amount: Number(depositAmount) });
+                      }}
+                      className="space-y-4"
+                    >
+                      <div>
+                        <Label>Amount</Label>
+                        <Input
+                          value={depositAmount}
+                          onChange={(e) => setDepositAmount(e.target.value)}
+                          type="number" placeholder="0.00" min="0.01" step="any" required
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Remaining to goal: {formatCurrency(target - saved)}
+                        </p>
+                      </div>
+                      <Button type="submit" className="w-full" disabled={depositMutation.isPending}>
+                        {depositMutation.isPending ? "Depositing..." : "Confirm Deposit"}
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
           );
         })}
       </div>

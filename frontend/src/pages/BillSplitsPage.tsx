@@ -1,32 +1,37 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Check, X, Plus } from "lucide-react";
+import { Check, X, Plus, UserPlus, Trash2, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatCurrency, toNumber } from "@/lib/format";
 
 export default function BillSplitsPage() {
+  const [activeTab, setActiveTab] = useState<"splits" | "create">("splits");
+
+  // Create form state
   const [desc, setDesc] = useState("");
   const [total, setTotal] = useState("");
-  const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
+  const [participants, setParticipants] = useState<string[]>([]);
+  const [participantInput, setParticipantInput] = useState("");
+
   const queryClient = useQueryClient();
 
   const { data: billRows = [] } = useQuery({ queryKey: ["bills"], queryFn: api.bills.getAll });
   const { data: friends = [] } = useQuery({ queryKey: ["friends"], queryFn: api.friends.getAll });
 
+  // ── Mutations ──────────────────────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: api.bills.create,
     onSuccess: async () => {
       toast.success("Bill split created");
       setDesc("");
       setTotal("");
-      setSelectedFriends([]);
+      setParticipants([]);
+      setParticipantInput("");
+      setActiveTab("splits");
       await queryClient.invalidateQueries({ queryKey: ["bills"] });
     },
     onError: (error) => {
@@ -49,112 +54,271 @@ export default function BillSplitsPage() {
     },
   });
 
-  const toggleFriend = (id: string) => {
-    setSelectedFriends((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]));
+  // ── Participant management ─────────────────────────────────────────────────
+  const addParticipant = (username: string) => {
+    const trimmed = username.trim();
+    if (!trimmed) return;
+    if (participants.includes(trimmed)) {
+      toast.error(`${trimmed} is already added`);
+      return;
+    }
+    setParticipants((prev) => [...prev, trimmed]);
+    setParticipantInput("");
   };
 
-  const splitAmount = selectedFriends.length > 0 ? parseFloat(total || "0") / (selectedFriends.length + 1) : 0;
+  const removeParticipant = (username: string) => {
+    setParticipants((prev) => prev.filter((p) => p !== username));
+  };
+
+  const toggleFriend = (username: string) => {
+    if (participants.includes(username)) {
+      removeParticipant(username);
+    } else {
+      setParticipants((prev) => [...prev, username]);
+    }
+  };
+
+  const splitAmount =
+    participants.length > 0 ? parseFloat(total || "0") / (participants.length + 1) : 0;
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!desc || !total || selectedFriends.length === 0) {
-      toast.error("Please fill all fields and select at least one friend");
-      return;
-    }
+    if (!desc.trim()) { toast.error("Please enter a description"); return; }
+    const totalAmount = parseFloat(total);
+    if (!total || isNaN(totalAmount) || totalAmount <= 0) { toast.error("Please enter a valid total amount"); return; }
+    if (participants.length === 0) { toast.error("Please add at least one participant"); return; }
 
-    const totalAmount = Number(total);
-    const eachShare = totalAmount / (selectedFriends.length + 1);
-    const participants = selectedFriends.map((username) => ({ username, amount_owed: eachShare }));
+    const eachShare = totalAmount / (participants.length + 1);
+    const participantPayload = participants.map((username) => ({ username, amount_owed: eachShare }));
 
     createMutation.mutate({
-      description: desc,
+      description: desc.trim(),
       total_amount: totalAmount,
-      participants,
+      participants: participantPayload,
     });
   };
 
   return (
     <div className="space-y-6">
+      {/* Page heading */}
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Bill Splits</h2>
-        <p className="text-sm text-muted-foreground">Split expenses with friends</p>
+        <h2 className="text-2xl font-display font-bold text-foreground">Bill Splits</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">Split expenses with friends</p>
       </div>
 
-      <Tabs defaultValue="splits">
-        <TabsList>
-          <TabsTrigger value="splits">My Splits</TabsTrigger>
-          <TabsTrigger value="create">Create New Split</TabsTrigger>
-        </TabsList>
+      {/* Tab bar */}
+      <div className="flex gap-1 bg-surface-container-low border border-border rounded-lg p-1 w-full sm:w-fit">
+        {(["splits", "create"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
+              activeTab === tab
+                ? "bg-card text-foreground shadow-sm border border-border"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab === "splits" ? "My Splits" : "Create New Split"}
+          </button>
+        ))}
+      </div>
 
-        <TabsContent value="splits" className="space-y-4 mt-4">
-          {billRows.map((row) => {
-            return (
-              <Card key={row.split_id} className="card-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base text-foreground">{row.description || "Bill split"}</CardTitle>
-                    <span className="text-lg font-bold text-foreground">{formatCurrency(toNumber(row.total_amount))}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Created by {row.created_by} • {new Date(row.created_at).toLocaleDateString()}</p>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between py-1.5 px-3 rounded-md bg-muted/50">
-                    <span className="text-sm font-medium">My share</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-semibold">{formatCurrency(toNumber(row.amount_owed))}</span>
-                      {row.is_paid ? <Check className="h-4 w-4 text-success" /> : <X className="h-4 w-4 text-destructive" />}
-                    </div>
-                  </div>
-                  {!row.is_paid && (
-                    <Button className="mt-3 w-full" onClick={() => payMutation.mutate(row.split_id)}>
-                      Pay My Share
-                    </Button>
+      {/* ── My Splits tab ── */}
+      {activeTab === "splits" && (
+        <div className="space-y-4">
+          {billRows.length === 0 && (
+            <div className="bg-card border border-border rounded-xl p-10 text-center card-shadow">
+              <Receipt className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+              <p className="font-display font-semibold text-foreground mb-1">No bill splits yet</p>
+              <p className="text-sm text-muted-foreground mb-4">Create a split to share expenses with friends.</p>
+              <Button onClick={() => setActiveTab("create")} size="sm">
+                <Plus className="h-4 w-4 mr-2" /> Create Split
+              </Button>
+            </div>
+          )}
+
+          {billRows.map((row) => (
+            <div key={row.split_id} className="bg-card border border-border rounded-xl p-5 card-shadow">
+              {/* Card header */}
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="font-display font-semibold text-foreground">{row.description || "Bill split"}</h3>
+                  <p className="label-caps text-muted-foreground mt-0.5">
+                    By {row.created_by} · {new Date(row.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <span className="text-xl font-display font-bold text-foreground tabular-nums">
+                  {formatCurrency(toNumber(row.total_amount))}
+                </span>
+              </div>
+
+              {/* My share row */}
+              <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-surface-container-low border border-border">
+                <span className="text-sm font-medium text-foreground">My share</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold font-display tabular-nums text-foreground">
+                    {formatCurrency(toNumber(row.amount_owed))}
+                  </span>
+                  {row.is_paid ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-soft text-emerald text-xs font-medium">
+                      <Check className="h-3 w-3" /> Paid
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-coral-soft text-coral-DEFAULT text-xs font-medium">
+                      <X className="h-3 w-3" /> Unpaid
+                    </span>
                   )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </TabsContent>
+                </div>
+              </div>
 
-        <TabsContent value="create" className="mt-4">
-          <Card className="card-shadow max-w-lg">
-            <CardHeader>
-              <CardTitle className="text-foreground">Create New Split</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleCreate} className="space-y-4">
-                <div>
-                  <Label>Description</Label>
-                  <Input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Dinner, trip, etc." required />
-                </div>
-                <div>
-                  <Label>Total Amount</Label>
-                  <Input type="number" value={total} onChange={e => setTotal(e.target.value)} placeholder="0.00" min="0.01" step="0.01" required />
-                </div>
-                <div>
-                  <Label>Select Participants</Label>
-                  <div className="space-y-2 mt-2">
+              {/* Pay button */}
+              {!row.is_paid && (
+                <Button
+                  className="mt-3 w-full"
+                  onClick={() => payMutation.mutate(row.split_id)}
+                  disabled={payMutation.isPending}
+                >
+                  Pay My Share ({formatCurrency(toNumber(row.amount_owed))})
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Create New Split tab ── */}
+      {activeTab === "create" && (
+        <div className="bg-card border border-border rounded-xl p-6 card-shadow max-w-lg">
+          <h3 className="font-display font-semibold text-foreground text-lg mb-5">Create New Split</h3>
+          <form onSubmit={handleCreate} className="space-y-5">
+            {/* Description */}
+            <div>
+              <Label className="text-sm font-medium text-foreground mb-1.5 block">Description</Label>
+              <Input
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
+                placeholder="Dinner, trip, groceries…"
+                required
+              />
+            </div>
+
+            {/* Total amount */}
+            <div>
+              <Label className="text-sm font-medium text-foreground mb-1.5 block">Total Amount</Label>
+              <Input
+                type="number"
+                value={total}
+                onChange={(e) => setTotal(e.target.value)}
+                placeholder="0.00"
+                min="0.01"
+                step="any"
+                required
+              />
+            </div>
+
+            {/* Participants */}
+            <div>
+              <Label className="text-sm font-medium text-foreground mb-1.5 block">
+                Participants <span className="text-muted-foreground font-normal">({participants.length} added)</span>
+              </Label>
+
+              {/* Manual username input */}
+              <div className="flex gap-2 mb-3">
+                <Input
+                  value={participantInput}
+                  onChange={(e) => setParticipantInput(e.target.value)}
+                  placeholder="Type a username…"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); addParticipant(participantInput); }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => addParticipant(participantInput)}
+                  className="shrink-0"
+                >
+                  <UserPlus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Friends quick-select */}
+              {friends.length > 0 && (
+                <div className="space-y-1 mb-3">
+                  <p className="label-caps text-muted-foreground mb-2">Quick-add from friends</p>
+                  <div className="max-h-40 overflow-y-auto space-y-1 rounded-lg border border-border p-2 bg-surface-container-low">
                     {friends.map((f) => (
-                      <label key={f.friendship_id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer">
-                        <Checkbox checked={selectedFriends.includes(f.username)} onCheckedChange={() => toggleFriend(f.username)} />
-                        <span className="text-sm">{f.username}</span>
+                      <label
+                        key={f.friendship_id}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-surface-container cursor-pointer"
+                      >
+                        <div
+                          className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                            participants.includes(f.username)
+                              ? "bg-primary border-primary"
+                              : "border-border bg-card"
+                          }`}
+                          onClick={() => toggleFriend(f.username)}
+                        >
+                          {participants.includes(f.username) && (
+                            <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                          )}
+                        </div>
+                        <span className="text-sm text-foreground" onClick={() => toggleFriend(f.username)}>{f.username}</span>
                       </label>
                     ))}
                   </div>
                 </div>
-                {selectedFriends.length > 0 && (
-                  <div className="p-3 rounded-lg bg-muted/50 text-sm">
-                    <span className="text-muted-foreground">Each person pays:</span>{" "}
-                    <span className="font-bold text-foreground">{formatCurrency(splitAmount)}</span>
-                    <span className="text-muted-foreground ml-1">({selectedFriends.length + 1} people)</span>
-                  </div>
-                )}
-                <Button type="submit" className="w-full" disabled={createMutation.isPending}><Plus className="mr-2 h-4 w-4" />{createMutation.isPending ? "Creating..." : "Create Split"}</Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              )}
+
+              {friends.length === 0 && participants.length === 0 && (
+                <p className="text-xs text-muted-foreground mb-2">
+                  No friends yet — type usernames above to add participants manually.
+                </p>
+              )}
+
+              {/* Participants chips */}
+              {participants.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {participants.map((p) => (
+                    <span
+                      key={p}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium"
+                    >
+                      {p}
+                      <button
+                        type="button"
+                        onClick={() => removeParticipant(p)}
+                        className="opacity-70 hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Split preview */}
+            {participants.length > 0 && parseFloat(total || "0") > 0 && (
+              <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-surface-container border border-border text-sm">
+                <span className="text-muted-foreground">
+                  Each person pays <span className="text-foreground font-medium">({participants.length + 1} people)</span>:
+                </span>
+                <span className="font-display font-bold text-foreground tabular-nums">
+                  {formatCurrency(splitAmount)}
+                </span>
+              </div>
+            )}
+
+            {/* Submit */}
+            <Button type="submit" className="w-full" disabled={createMutation.isPending}>
+              <Plus className="h-4 w-4 mr-2" />
+              {createMutation.isPending ? "Creating…" : "Create Split"}
+            </Button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
