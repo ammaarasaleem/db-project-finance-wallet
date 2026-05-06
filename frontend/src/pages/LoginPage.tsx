@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { setToken } from "@/lib/auth";
+import { CashParticles } from "@/components/CashParticles";
+import { GlassCard } from "@/components/GlassCard";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -43,6 +45,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex bg-background">
       {/* Left decorative panel */}
       <div className="hidden lg:flex lg:w-1/2 bg-primary flex-col justify-between p-12 relative overflow-hidden">
+        <CashParticles count={25} type="rain" />
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-white blur-3xl" />
           <div className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full bg-white blur-2xl" />
@@ -75,8 +78,9 @@ export default function LoginPage() {
       </div>
 
       {/* Right: form panel */}
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-sm">
+      <div className="flex-1 flex items-center justify-center p-6 bg-surface-container-low/30 relative">
+        <CashParticles count={15} type="mixed" className="opacity-30 lg:hidden" />
+        <GlassCard className="w-full max-w-sm relative z-10 p-8 sm:p-10 border-border/50">
           {/* Mobile brand */}
           <div className="flex items-center gap-2 mb-8 lg:hidden">
             <div className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-display font-black text-sm">FT</div>
@@ -125,7 +129,7 @@ export default function LoginPage() {
               {isRegister ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
             </button>
           </div>
-        </div>
+        </GlassCard>
       </div>
     </div>
   );

@@ -36,7 +36,7 @@ const getMyVaults = async (req, res) => {
       .input('uid', sql.Int, req.user.user_id)
       .query(`
         SELECT id, user_Name AS vault_name, targetAmount, savedAmount,
-               CAST(savedAmount * 100.0 / targetAmount AS DECIMAL(5,2)) AS progress_percent,
+               CAST(savedAmount * 100.0 / NULLIF(targetAmount, 0) AS DECIMAL(5,2)) AS progress_percent,
                deadline, isAchieved, createdON
         FROM savingVault
         WHERE userID = @uid

@@ -5,6 +5,8 @@ import { TypeBadge, StatusBadge } from "@/components/StatusBadge";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatCurrency, toNumber } from "@/lib/format";
+import { GlassCard } from "@/components/GlassCard";
+import { StaggerList } from "@/components/StaggerList";
 
 type WalletTransaction = {
   transaction_id: number;
@@ -40,7 +42,7 @@ export default function TransactionsPage() {
         <p className="text-sm text-muted-foreground mt-0.5">View and filter all activity</p>
       </div>
 
-      <div className="bg-card border border-border rounded-xl card-shadow overflow-hidden">
+      <GlassCard className="p-0 overflow-hidden border-none shadow-none sm:border-solid sm:shadow-md">
         <div className="px-6 py-4 border-b border-border flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           <h3 className="font-display font-semibold text-foreground">All Transactions</h3>
           <div className="flex gap-2">
@@ -48,6 +50,7 @@ export default function TransactionsPage() {
               <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="deposit">Deposit</SelectItem>
                 <SelectItem value="transfer">Transfer</SelectItem>
                 <SelectItem value="bill_split">Bill Split</SelectItem>
                 <SelectItem value="loan">Loan</SelectItem>
@@ -83,11 +86,11 @@ export default function TransactionsPage() {
                   <th className="text-left px-6 py-3 label-caps text-muted-foreground">Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <StaggerList delayMs={30} className="divide-y divide-border table-row-group">
                 {filtered.map((tx) => (
                   <tr
                     key={tx.transaction_id}
-                    className="hover:bg-surface-container-low transition-colors cursor-pointer"
+                    className="hover:bg-surface-container-low transition-colors cursor-pointer table-row"
                     onClick={() => setSelected(tx)}
                   >
                     <td className="px-6 py-3 font-medium text-foreground">{tx.sender}</td>
@@ -101,11 +104,11 @@ export default function TransactionsPage() {
                     <td className="px-6 py-3 text-muted-foreground">{new Date(tx.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}
-              </tbody>
+              </StaggerList>
             </table>
           </div>
         )}
-      </div>
+      </GlassCard>
 
       {/* Detail modal */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>

@@ -7,6 +7,10 @@ import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatCurrency, toNumber } from "@/lib/format";
+import { AnimatedNumber } from "@/components/AnimatedNumber";
+import { GlassCard } from "@/components/GlassCard";
+import { StaggerList } from "@/components/StaggerList";
+import { CoinShower } from "@/components/CashParticles";
 
 export default function BillSplitsPage() {
   const [activeTab, setActiveTab] = useState<"splits" | "create">("splits");
@@ -16,6 +20,7 @@ export default function BillSplitsPage() {
   const [total, setTotal] = useState("");
   const [participants, setParticipants] = useState<string[]>([]);
   const [participantInput, setParticipantInput] = useState("");
+  const [showerTrigger, setShowerTrigger] = useState(0);
 
   const queryClient = useQueryClient();
 
@@ -44,6 +49,7 @@ export default function BillSplitsPage() {
     mutationFn: api.bills.pay,
     onSuccess: async () => {
       toast.success("Payment completed");
+      setShowerTrigger(Date.now());
       await queryClient.invalidateQueries({ queryKey: ["bills"] });
       await queryClient.invalidateQueries({ queryKey: ["wallet-transactions"] });
       await queryClient.invalidateQueries({ queryKey: ["wallet"] });
@@ -99,7 +105,8 @@ export default function BillSplitsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      <CoinShower trigger={showerTrigger} />
       {/* Page heading */}
       <div>
         <h2 className="text-2xl font-display font-bold text-foreground">Bill Splits</h2>
@@ -125,9 +132,9 @@ export default function BillSplitsPage() {
 
       {/* ── My Splits tab ── */}
       {activeTab === "splits" && (
-        <div className="space-y-4">
+        <StaggerList delayMs={40} key="splits" className="space-y-4">
           {billRows.length === 0 && (
-            <div className="bg-card border border-border rounded-xl p-10 text-center card-shadow">
+            <div className="glass-secondary rounded-xl p-10 text-center">
               <Receipt className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40" />
               <p className="font-display font-semibold text-foreground mb-1">No bill splits yet</p>
               <p className="text-sm text-muted-foreground mb-4">Create a split to share expenses with friends.</p>
@@ -138,7 +145,7 @@ export default function BillSplitsPage() {
           )}
 
           {billRows.map((row) => (
-            <div key={row.split_id} className="bg-card border border-border rounded-xl p-5 card-shadow">
+            <GlassCard liftOnHover key={row.split_id} className="p-5">
               {/* Card header */}
               <div className="flex items-start justify-between mb-3">
                 <div>
@@ -148,7 +155,7 @@ export default function BillSplitsPage() {
                   </p>
                 </div>
                 <span className="text-xl font-display font-bold text-foreground tabular-nums">
-                  {formatCurrency(toNumber(row.total_amount))}
+                  <AnimatedNumber value={toNumber(row.total_amount)} />
                 </span>
               </div>
 
@@ -157,7 +164,7 @@ export default function BillSplitsPage() {
                 <span className="text-sm font-medium text-foreground">My share</span>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-semibold font-display tabular-nums text-foreground">
-                    {formatCurrency(toNumber(row.amount_owed))}
+                    <AnimatedNumber value={toNumber(row.amount_owed)} />
                   </span>
                   {row.is_paid ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-soft text-emerald text-xs font-medium">
@@ -181,15 +188,16 @@ export default function BillSplitsPage() {
                   Pay My Share ({formatCurrency(toNumber(row.amount_owed))})
                 </Button>
               )}
-            </div>
+            </GlassCard>
           ))}
-        </div>
+        </StaggerList>
       )}
 
       {/* ── Create New Split tab ── */}
       {activeTab === "create" && (
-        <div className="bg-card border border-border rounded-xl p-6 card-shadow max-w-lg">
-          <h3 className="font-display font-semibold text-foreground text-lg mb-5">Create New Split</h3>
+        <StaggerList delayMs={30} key="create">
+          <GlassCard className="p-6 max-w-lg mx-auto">
+            <h3 className="font-display font-semibold text-foreground text-lg mb-5">Create New Split</h3>
           <form onSubmit={handleCreate} className="space-y-5">
             {/* Description */}
             <div>
@@ -279,7 +287,7 @@ export default function BillSplitsPage() {
 
               {/* Participants chips */}
               {participants.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <StaggerList delayMs={20} className="flex flex-wrap gap-2">
                   {participants.map((p) => (
                     <span
                       key={p}
@@ -295,7 +303,7 @@ export default function BillSplitsPage() {
                       </button>
                     </span>
                   ))}
-                </div>
+                </StaggerList>
               )}
             </div>
 
@@ -306,7 +314,7 @@ export default function BillSplitsPage() {
                   Each person pays <span className="text-foreground font-medium">({participants.length + 1} people)</span>:
                 </span>
                 <span className="font-display font-bold text-foreground tabular-nums">
-                  {formatCurrency(splitAmount)}
+                  <AnimatedNumber value={splitAmount} />
                 </span>
               </div>
             )}
@@ -317,7 +325,8 @@ export default function BillSplitsPage() {
               {createMutation.isPending ? "Creating…" : "Create Split"}
             </Button>
           </form>
-        </div>
+        </GlassCard>
+        </StaggerList>
       )}
     </div>
   );

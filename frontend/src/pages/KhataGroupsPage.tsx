@@ -14,6 +14,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatCurrency, toNumber } from "@/lib/format";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { AnimatedNumber } from "@/components/AnimatedNumber";
+import { GlassCard } from "@/components/GlassCard";
+import { StaggerList } from "@/components/StaggerList";
+import { CoinShower } from "@/components/CashParticles";
 
 // ── Utility: calculate current cycle number from start date + cycle type
 function getCurrentCycleNumber(startDate: string, cycleType: string): number {
@@ -115,6 +119,7 @@ export default function KhataGroupsPage() {
   const [cycleType,          setCycleType]          = useState("Monthly");
   const [startDate,          setStartDate]          = useState("");
   const [createAmtError,     setCreateAmtError]     = useState("");
+  const [showerTrigger,      setShowerTrigger]      = useState(0);
 
   // ── Which group is expanded
   const [expandedGroup, setExpandedGroup] = useState<number | null>(null);
@@ -178,6 +183,7 @@ export default function KhataGroupsPage() {
       toast.success(
         `Contribution of $${data?.amountPaid?.toFixed(2) ?? ""} recorded for cycle ${variables.cycleNumber}!`
       );
+      setShowerTrigger(Date.now());
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["khata-contributions", variables.groupId] }),
         queryClient.invalidateQueries({ queryKey: ["khata-members", variables.groupId] }),
@@ -246,7 +252,8 @@ export default function KhataGroupsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      <CoinShower trigger={showerTrigger} />
       {/* ── Page header ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
@@ -308,19 +315,20 @@ export default function KhataGroupsPage() {
       )}
 
       {/* ── Group cards ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <StaggerList delayMs={40} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {groups.map((group) => {
           const cycle     = getCurrentCycleNumber(group.StartDate, group.CycleType);
           const isExpanded = expandedGroup === group.Id;
 
           return (
-            <Card
+            <GlassCard
+              liftOnHover={!isExpanded}
               key={group.Id}
-              className="card-shadow cursor-pointer"
+              className={`p-0 cursor-pointer transition-all duration-300 ${isExpanded ? "ring-2 ring-primary/20" : ""}`}
               onClick={() => handleToggleExpand(group.Id)}
             >
               {/* ── Card header ── */}
-              <CardHeader className="pb-3">
+              <div className="p-6 pb-3">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
                     <Users className="h-5 w-5 text-primary" />
@@ -335,9 +343,9 @@ export default function KhataGroupsPage() {
                     {isExpanded ? "▲ Hide" : "▼ Details"}
                   </Badge>
                 </div>
-              </CardHeader>
+              </div>
 
-              <CardContent className="space-y-3">
+              <div className="p-6 pt-0 space-y-3">
                 {/* ── Summary row ── */}
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
@@ -354,16 +362,19 @@ export default function KhataGroupsPage() {
                   </div>
                   <div>
                     <span className="text-muted-foreground">Collected: </span>
-                    <span className="font-semibold">{formatCurrency(toNumber(group.total_collected))}</span>
+                    <span className="font-semibold"><AnimatedNumber value={toNumber(group.total_collected)} /></span>
                   </div>
                 </div>
 
                 {/* ── Expanded detail ── */}
-                {isExpanded && (
-                  <div
-                    className="mt-4 space-y-5"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                <div
+                  className={`grid transition-all duration-300 ease-in-out ${isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+                >
+                  <div className="overflow-hidden">
+                    <div
+                      className="pt-4 space-y-5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                     {/* ── Pay My Contribution ── */}
                     {isCurrentUserMember && (
                       <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/20">
@@ -405,7 +416,7 @@ export default function KhataGroupsPage() {
                       ) : membersArr.length === 0 ? (
                         <p className="text-xs text-muted-foreground">No members yet.</p>
                       ) : (
-                        <div className="space-y-1">
+                        <StaggerList delayMs={20} className="space-y-1">
                           {membersArr.map((member: any) => {
                             const hasPaid = getMemberPaidStatus(member.username);
                             return (
@@ -431,7 +442,7 @@ export default function KhataGroupsPage() {
                               </div>
                             );
                           })}
-                        </div>
+                        </StaggerList>
                       )}
                     </div>
 
@@ -490,14 +501,14 @@ export default function KhataGroupsPage() {
                         </div>
                       )}
                     </div>
-
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              </div>
+              </div>
+            </GlassCard>
           );
         })}
-      </div>
+      </StaggerList>
     </div>
   );
 }

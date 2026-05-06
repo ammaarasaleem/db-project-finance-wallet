@@ -11,6 +11,10 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatCurrency, toNumber } from "@/lib/format";
+import { AnimatedNumber } from "@/components/AnimatedNumber";
+import { GlassCard } from "@/components/GlassCard";
+import { StaggerList } from "@/components/StaggerList";
+import { CoinShower } from "@/components/CashParticles";
 
 export default function LoansPage() {
   const [activeTab, setActiveTab] = useState<"lending" | "borrowing">("lending");
@@ -18,6 +22,7 @@ export default function LoansPage() {
   const [lenderUsername, setLenderUsername] = useState("");
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [showerTrigger, setShowerTrigger] = useState(0);
   const queryClient = useQueryClient();
 
   const { data: me } = useCurrentUser();
@@ -41,9 +46,19 @@ export default function LoansPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Approve failed"),
   });
 
+  const rejectMutation = useMutation({
+    mutationFn: api.loans.reject,
+    onSuccess: async () => { toast.success("Loan rejected"); await queryClient.invalidateQueries({ queryKey: ["loans"] }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Reject failed"),
+  });
+
   const repayMutation = useMutation({
     mutationFn: ({ loanId, repayAmount }: { loanId: number; repayAmount: number }) => api.loans.repay(loanId, repayAmount),
-    onSuccess: async () => { toast.success("Repayment submitted"); await queryClient.invalidateQueries({ queryKey: ["loans"] }); },
+    onSuccess: async () => { 
+      toast.success("Repayment submitted"); 
+      setShowerTrigger(Date.now());
+      await queryClient.invalidateQueries({ queryKey: ["loans"] }); 
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Repayment failed"),
   });
 
@@ -52,7 +67,8 @@ export default function LoansPage() {
   const list = activeTab === "lending" ? lending : borrowing;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      <CoinShower trigger={showerTrigger} />
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
@@ -114,7 +130,7 @@ export default function LoansPage() {
 
       {/* Loan cards */}
       {list.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-10 text-center card-shadow">
+        <div className="glass-secondary rounded-xl p-10 text-center">
           <Handshake className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40 animate-coin-bounce" />
           <p className="font-display font-semibold text-foreground mb-1">No loans here</p>
           <p className="text-sm text-muted-foreground">
@@ -122,7 +138,7 @@ export default function LoansPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <StaggerList delayMs={40} key={activeTab} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {list.map((loan) => {
             const isBorrower = activeTab === "borrowing";
             const original = toNumber(loan.amount);
@@ -131,7 +147,7 @@ export default function LoansPage() {
             const progress = original > 0 ? Math.min(100, (repaid / original) * 100) : 0;
 
             return (
-              <div key={loan.loan_id} className="bg-card border border-border rounded-xl p-5 card-shadow space-y-4">
+              <GlassCard liftOnHover key={loan.loan_id} className="p-5 space-y-4">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-display font-semibold text-foreground text-base">
@@ -147,22 +163,22 @@ export default function LoansPage() {
                 <div className="grid grid-cols-3 gap-3 text-sm">
                   <div className="rounded-lg bg-surface-container-low border border-border p-3 text-center">
                     <p className="label-caps text-muted-foreground mb-1">Total</p>
-                    <p className="font-display font-bold text-foreground tabular-nums">{formatCurrency(original)}</p>
+                    <p className="font-display font-bold text-foreground tabular-nums"><AnimatedNumber value={original} /></p>
                   </div>
                   <div className="rounded-lg bg-emerald-soft border border-emerald-DEFAULT/20 p-3 text-center">
                     <p className="label-caps text-muted-foreground mb-1">Repaid</p>
-                    <p className="font-display font-bold text-emerald tabular-nums">{formatCurrency(repaid)}</p>
+                    <p className="font-display font-bold text-emerald tabular-nums"><AnimatedNumber value={repaid} /></p>
                   </div>
                   <div className="rounded-lg bg-surface-container-low border border-border p-3 text-center">
                     <p className="label-caps text-muted-foreground mb-1">Left</p>
-                    <p className="font-display font-bold text-foreground tabular-nums">{formatCurrency(remaining)}</p>
+                    <p className="font-display font-bold text-foreground tabular-nums"><AnimatedNumber value={remaining} /></p>
                   </div>
                 </div>
 
                 {/* Progress bar */}
                 <div>
                   <div className="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-emerald-DEFAULT transition-all" style={{ width: `${progress}%` }} />
+                    <div className={progress >= 100 ? "progress-gradient-green" : "progress-gradient"} style={{ width: `${progress}%` }} />
                   </div>
                   <div className="flex items-center justify-end gap-1.5 mt-1">
                     {progress >= 100 && (
@@ -182,14 +198,24 @@ export default function LoansPage() {
                   </Button>
                 )}
                 {!isBorrower && loan.status === "requested" && (
-                  <Button className="w-full" onClick={() => approveMutation.mutate(loan.loan_id)} disabled={approveMutation.isPending}>
-                    Approve Loan
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button className="flex-1" onClick={() => approveMutation.mutate(loan.loan_id)} disabled={approveMutation.isPending}>
+                      Approve Loan
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => rejectMutation.mutate(loan.loan_id)}
+                      disabled={rejectMutation.isPending}
+                    >
+                      Reject
+                    </Button>
+                  </div>
                 )}
-              </div>
+              </GlassCard>
             );
           })}
-        </div>
+        </StaggerList>
       )}
     </div>
   );

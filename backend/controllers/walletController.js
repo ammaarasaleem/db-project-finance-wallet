@@ -38,14 +38,14 @@ const deposit = async (req, res) => {
       .input('amount', sql.Decimal(12, 2), parsedAmount)
       .query('UPDATE Wallets SET balance = balance + @amount, updated_at = CURRENT_TIMESTAMP WHERE user_id = @user_id');
 
-    // Record self-transaction for audit trail
+    // Record deposit transaction for audit trail
     await pool.request()
       .input('user_id', sql.Int, user_id)
       .input('amount', sql.Decimal(12, 2), parsedAmount)
       .input('note', sql.VarChar, note || 'Deposit')
       .query(`
         INSERT INTO Transactions (sender_id, receiver_id, amount, type, status, note)
-        VALUES (@user_id, @user_id, @amount, 'transfer', 'completed', @note)
+        VALUES (@user_id, @user_id, @amount, 'deposit', 'completed', @note)
       `);
 
     const result = await pool.request()

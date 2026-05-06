@@ -11,6 +11,9 @@ import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatCurrency, toNumber } from "@/lib/format";
+import { AnimatedNumber } from "@/components/AnimatedNumber";
+import { GlassCard } from "@/components/GlassCard";
+import { StaggerList } from "@/components/StaggerList";
 
 const CATEGORIES = ["Housing", "Utilities", "Subscriptions", "Health", "Insurance", "General"];
 
@@ -162,39 +165,39 @@ export default function FixedExpensesPage() {
 
       {/* Summary row */}
       {salaryNum > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-card border border-border rounded-xl p-5 card-shadow">
+        <StaggerList delayMs={80} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <GlassCard liftOnHover className="p-5">
             <p className="label-caps text-muted-foreground mb-2">Monthly Salary</p>
-            <p className="text-2xl font-display font-bold text-foreground tabular-nums">{formatCurrency(salaryNum)}</p>
-          </div>
-          <div className="bg-card border border-border rounded-xl p-5 card-shadow">
+            <p className="text-2xl font-display font-bold text-foreground tabular-nums"><AnimatedNumber value={salaryNum} /></p>
+          </GlassCard>
+          <GlassCard liftOnHover className="p-5">
             <p className="label-caps text-muted-foreground mb-2">Total Expenses</p>
-            <p className="text-2xl font-display font-bold text-foreground tabular-nums">{formatCurrency(totalExpenses)}</p>
+            <p className="text-2xl font-display font-bold text-foreground tabular-nums"><AnimatedNumber value={totalExpenses} /></p>
             {expenseRatio && (
               <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden mt-2">
-                <div className="h-full rounded-full bg-red-400" style={{ width: `${Math.min(100, parseFloat(expenseRatio))}%` }} />
+                <div className="h-full rounded-full bg-red-400 transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, parseFloat(expenseRatio))}%` }} />
               </div>
             )}
-          </div>
-          <div className="bg-card border border-border rounded-xl p-5 card-shadow">
+          </GlassCard>
+          <GlassCard liftOnHover className="p-5">
             <div className="flex items-center gap-1 mb-2">
               {disposable >= 0 ? <TrendingUp className="h-3.5 w-3.5 text-emerald" /> : <TrendingDown className="h-3.5 w-3.5 text-coral-DEFAULT" />}
               <p className="label-caps text-muted-foreground">Disposable Income</p>
             </div>
             <p className={`text-2xl font-display font-bold tabular-nums ${disposable >= 0 ? "text-emerald" : "text-coral-DEFAULT"}`}>
-              {formatCurrency(disposable)}
+              <AnimatedNumber value={disposable} />
             </p>
-          </div>
-          <div className="bg-card border border-border rounded-xl p-5 card-shadow">
+          </GlassCard>
+          <GlassCard liftOnHover className="p-5">
             <p className="label-caps text-muted-foreground mb-2">Expense Ratio</p>
             <p className={`text-2xl font-display font-bold ${expenseRatio && parseFloat(expenseRatio) > 80 ? "text-coral-DEFAULT" : "text-foreground"}`}>
-              {expenseRatio ? `${expenseRatio}%` : "—"}
+              <AnimatedNumber value={parseFloat(expenseRatio || "0")} isCurrency={false} />%
             </p>
             <p className="text-xs text-muted-foreground mt-1">of salary</p>
-          </div>
-        </div>
+          </GlassCard>
+        </StaggerList>
       ) : (
-        <div className="bg-card border border-dashed border-border rounded-xl p-8 text-center card-shadow">
+        <div className="glass-secondary rounded-xl p-8 text-center border-dashed">
           <DollarSign className="h-9 w-9 text-muted-foreground mx-auto mb-3 opacity-40" />
           <p className="font-display font-semibold text-foreground mb-1">Set your monthly salary</p>
           <p className="text-sm text-muted-foreground mb-4">Track disposable income and expense ratios in one place.</p>
@@ -205,13 +208,13 @@ export default function FixedExpensesPage() {
       {/* Salary card + Chart row */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Salary card */}
-        <div className="lg:col-span-5 bg-card border border-border rounded-xl p-5 card-shadow flex flex-col gap-4">
+        <GlassCard className="lg:col-span-5 flex flex-col gap-4 p-6 border-none shadow-none sm:border-solid sm:shadow-md">
           <div className="flex items-start justify-between">
             <div>
               <p className="label-caps text-muted-foreground mb-1">Monthly Salary</p>
               {salary ? (
                 <>
-                  <p className="text-3xl font-display font-bold text-foreground tabular-nums">{formatCurrency(toNumber(salary.amount))}</p>
+                  <p className="text-3xl font-display font-bold text-foreground tabular-nums"><AnimatedNumber value={toNumber(salary.amount)} /></p>
                   <p className="text-xs text-muted-foreground mt-1">Pay day: {salary.pay_day} · {salary.currency}</p>
                 </>
               ) : (
@@ -257,10 +260,10 @@ export default function FixedExpensesPage() {
               Salary is used to calculate your disposable income after fixed expenses.
             </p>
           )}
-        </div>
+        </GlassCard>
 
         {/* Pie chart */}
-        <div className="lg:col-span-7 bg-card border border-border rounded-xl p-5 card-shadow">
+        <GlassCard className="lg:col-span-7 p-6 border-none shadow-none sm:border-solid sm:shadow-md">
           <div className="flex items-center gap-2 mb-4">
             <BarChart2 className="h-4 w-4 text-muted-foreground" />
             <h3 className="font-display font-semibold text-foreground">Expense Breakdown</h3>
@@ -281,11 +284,11 @@ export default function FixedExpensesPage() {
               </PieChart>
             </ResponsiveContainer>
           )}
-        </div>
+        </GlassCard>
       </div>
 
       {/* Expenses table */}
-      <div className="bg-card border border-border rounded-xl card-shadow overflow-hidden">
+      <GlassCard className="p-0 overflow-hidden border-none shadow-none sm:border-solid sm:shadow-md">
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
           <h3 className="font-display font-semibold text-foreground">Fixed Expenses</h3>
           <span className="text-sm text-muted-foreground">
@@ -306,9 +309,9 @@ export default function FixedExpensesPage() {
                   <th className="text-left px-6 py-3 label-caps text-muted-foreground">Active</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <StaggerList delayMs={30} className="divide-y divide-border table-row-group">
                 {fixedExpenses.map((exp) => (
-                  <tr key={exp.expense_id} className={`hover:bg-surface-container-low transition-colors ${!exp.is_active ? "opacity-50" : ""}`}>
+                  <tr key={exp.expense_id} className={`hover:bg-surface-container-low transition-colors table-row ${!exp.is_active ? "opacity-50" : ""}`}>
                     <td className="px-6 py-3 font-medium text-foreground">{exp.title}</td>
                     <td className="px-6 py-3 text-right font-display font-semibold tabular-nums text-foreground">{formatCurrency(toNumber(exp.amount))}</td>
                     <td className="px-6 py-3">
@@ -327,11 +330,11 @@ export default function FixedExpensesPage() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
+              </StaggerList>
             </table>
           </div>
         )}
-      </div>
+      </GlassCard>
     </div>
   );
 }

@@ -11,6 +11,10 @@ import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatCurrency, toNumber } from "@/lib/format";
+import { AnimatedNumber } from "@/components/AnimatedNumber";
+import { GlassCard } from "@/components/GlassCard";
+import { StaggerList } from "@/components/StaggerList";
+import { CashParticles, CoinShower } from "@/components/CashParticles";
 
 export default function WalletPage() {
   const [sendOpen, setSendOpen] = useState(false);
@@ -25,6 +29,7 @@ export default function WalletPage() {
 
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [showerTrigger, setShowerTrigger] = useState(0);
 
   const queryClient = useQueryClient();
 
@@ -39,6 +44,7 @@ export default function WalletPage() {
     mutationFn: ({ amount, note }: { amount: number; note?: string }) => api.wallet.deposit(amount, note),
     onSuccess: (data) => {
       toast.success(`Deposit successful! New balance: ${formatCurrency(toNumber(data?.balance))}`);
+      setShowerTrigger(Date.now());
       setDepositOpen(false);
       setDepositAmount("");
       setDepositNote("");
@@ -65,6 +71,7 @@ export default function WalletPage() {
     mutationFn: api.wallet.transfer,
     onSuccess: async () => {
       toast.success("Money sent successfully");
+      setShowerTrigger(Date.now());
       setSendOpen(false);
       setRecipient("");
       setSendAmount("");
@@ -90,7 +97,8 @@ export default function WalletPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      <CoinShower trigger={showerTrigger} />
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-display font-bold text-foreground">Wallet</h2>
@@ -155,9 +163,13 @@ export default function WalletPage() {
       </div>
 
       <div className="bg-primary text-primary-foreground rounded-xl p-6 relative overflow-hidden">
+        {/* ── FinTrack-sprite glow orbs ── */}
+        <div className="glow-orb glow-orb-teal w-48 h-48 -top-12 -right-12 opacity-60" />
+        <div className="glow-orb glow-orb-blue  w-32 h-32 bottom-0  right-1/3 opacity-35" />
         <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/5 pointer-events-none" />
         <div className="absolute top-4 right-20 w-20 h-20 rounded-full bg-white/5 pointer-events-none" />
         {/* Animated coin stack */}
+        <CashParticles count={6} type="coins" className="opacity-70" />
         <div className="absolute bottom-4 right-5 pointer-events-none opacity-20 animate-coin-bounce">
           <Coins className="h-10 w-10 text-amber-300" />
         </div>
@@ -182,12 +194,14 @@ export default function WalletPage() {
             <Wallet className="h-5 w-5 text-primary-foreground/60" />
             <span className="label-caps text-primary-foreground/60">Available Balance</span>
           </div>
-          <p className="text-5xl font-display font-bold leading-none">{formatCurrency(toNumber(wallet?.balance))}</p>
+          <p className="text-5xl font-display font-bold leading-none"><AnimatedNumber value={toNumber(wallet?.balance)} /></p>
           <p className="text-xs text-primary-foreground/50 mt-2">{wallet?.currency || "USD"}</p>
         </div>
+        {/* ── FinTrack-sprite bottom streak accent ── */}
+        <div className="streak-teal absolute bottom-0 left-6 right-6" />
       </div>
 
-      <div className="bg-card border border-border rounded-xl card-shadow overflow-hidden">
+      <GlassCard className="p-0 overflow-hidden border-none shadow-none sm:border-solid sm:shadow-md">
         <div className="px-6 py-4 border-b border-border flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           <h3 className="font-display font-semibold text-foreground">Transaction History</h3>
           <div className="flex gap-2">
@@ -195,6 +209,7 @@ export default function WalletPage() {
               <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="deposit">Deposit</SelectItem>
                 <SelectItem value="transfer">Transfer</SelectItem>
                 <SelectItem value="bill_split">Bill Split</SelectItem>
                 <SelectItem value="loan">Loan</SelectItem>
@@ -227,9 +242,9 @@ export default function WalletPage() {
                   <th className="text-left px-6 py-3 label-caps text-muted-foreground">Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <StaggerList delayMs={30} className="divide-y divide-border table-row-group">
                 {filtered.map((tx) => (
-                  <tr key={tx.transaction_id} className="hover:bg-surface-container-low transition-colors">
+                  <tr key={tx.transaction_id} className="hover:bg-surface-container-low transition-colors table-row">
                     <td className="px-6 py-3 font-medium text-foreground">{tx.sender}</td>
                     <td className="px-6 py-3 text-foreground">{tx.receiver}</td>
                     <td className="px-6 py-3 text-right font-semibold font-display tabular-nums text-foreground">{formatCurrency(toNumber(tx.amount))}</td>
@@ -238,11 +253,11 @@ export default function WalletPage() {
                     <td className="px-6 py-3 text-muted-foreground">{new Date(tx.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}
-              </tbody>
+              </StaggerList>
             </table>
           </div>
         )}
-      </div>
+      </GlassCard>
     </div>
   );
 }

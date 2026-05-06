@@ -141,14 +141,14 @@ export function AppSidebar({ mobileOpen = false, onClose }: AppSidebarProps) {
   return (
     <>
       {/* Desktop: fixed sidebar */}
-      <aside className="hidden md:flex flex-col h-screen w-64 border-r border-border bg-card fixed left-0 top-0 z-40">
+      <aside className="hidden md:flex flex-col h-screen w-64 sidebar fixed left-0 top-0 z-40">
         {sidebarContent}
       </aside>
 
       {/* Mobile: slide-in drawer */}
       <aside
         className={cn(
-          "md:hidden fixed inset-y-0 left-0 z-40 w-72 bg-card border-r border-border flex flex-col transition-transform duration-300 ease-in-out",
+          "md:hidden fixed inset-y-0 left-0 z-40 w-72 sidebar flex flex-col transition-transform duration-300 ease-in-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >

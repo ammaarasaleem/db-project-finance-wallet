@@ -3,6 +3,10 @@ import { api } from "@/lib/api";
 import { formatCurrency, toNumber } from "@/lib/format";
 import { TrendingUp, TrendingDown, Wallet, Handshake, Receipt, ArrowRight, Coins } from "lucide-react";
 import { Link } from "react-router-dom";
+import { AnimatedNumber } from "@/components/AnimatedNumber";
+import { GlassCard } from "@/components/GlassCard";
+import { StaggerList } from "@/components/StaggerList";
+import { CashParticles } from "@/components/CashParticles";
 
 const txIcon: Record<string, string> = {
   transfer: "⇄",
@@ -43,32 +47,18 @@ export default function Dashboard() {
       {/* Hero grid: Balance + Vaults */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Wallet balance card */}
-        <div className="lg:col-span-8 bg-card rounded-xl border border-border p-6 card-shadow relative overflow-hidden">
+        <GlassCard liftOnHover className="lg:col-span-8 p-6 relative overflow-hidden">
+          {/* FinTrack sprite glow orbs */}
+          <div className="glow-orb glow-orb-teal w-56 h-56 -top-14 -right-14 opacity-40" />
+          <div className="glow-orb glow-orb-blue  w-36 h-36 bottom-4   left-8    opacity-25" />
           <div className="absolute -top-10 -right-10 w-52 h-52 rounded-full bg-surface-container opacity-50 pointer-events-none" />
           {/* Floating coin decorations */}
-          {([
-            { size: 28, right: 32,  bottom: 20, delay: "0s",   dur: "3.4s" },
-            { size: 20, right: 68,  bottom: 12, delay: "1.2s", dur: "4.1s" },
-            { size: 24, right: 108, bottom: 28, delay: "2.3s", dur: "3.8s" },
-            { size: 16, right: 52,  bottom: 44, delay: "0.7s", dur: "4.5s" },
-          ] as const).map((c, i) => (
-            <div
-              key={i}
-              className="absolute rounded-full border-2 border-amber-400/30 bg-amber-400/10 flex items-center justify-center pointer-events-none"
-              style={{
-                width: c.size, height: c.size,
-                right: c.right, bottom: c.bottom,
-                animation: `float-up ${c.dur} ease-in ${c.delay} infinite`,
-              }}
-            >
-              <span className="text-amber-500/50 font-black select-none" style={{ fontSize: Math.round(c.size * 0.42) }}>$</span>
-            </div>
-          ))}
+          <CashParticles count={8} type="coins" className="opacity-80" />
           <div className="relative z-10 flex flex-col h-full justify-between gap-6">
             <div>
               <p className="label-caps text-muted-foreground mb-2">Current Balance</p>
               <p className="text-5xl font-display font-bold text-foreground leading-none">
-                {formatCurrency(walletBalance)}
+                <AnimatedNumber value={walletBalance} />
               </p>
               <p className="text-xs text-muted-foreground mt-2">{summary?.wallet?.currency || "USD"}</p>
             </div>
@@ -87,10 +77,12 @@ export default function Dashboard() {
               </Link>
             </div>
           </div>
-        </div>
+          {/* FinTrack sprite bottom streak accent */}
+          <div className="streak-teal absolute bottom-0 left-6 right-6 z-10" />
+        </GlassCard>
 
         {/* Top Saving Vaults */}
-        <div className="lg:col-span-4 bg-card rounded-xl border border-border p-5 card-shadow flex flex-col">
+        <GlassCard liftOnHover className="lg:col-span-4 p-5 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display font-semibold text-foreground text-base">Saving Vaults</h3>
             <Link to="/saving-vaults" className="label-caps text-primary hover:opacity-70 transition-opacity">
@@ -137,47 +129,47 @@ export default function Dashboard() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {formatCurrency(toNumber(vault.savedAmount))} / {formatCurrency(toNumber(vault.targetAmount))}
+                    <AnimatedNumber value={toNumber(vault.savedAmount)} /> / {formatCurrency(toNumber(vault.targetAmount))}
                   </p>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </GlassCard>
       </div>
 
       {/* Summary cards row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <StaggerList delayMs={80} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Salary */}
-        <div className="rounded-xl p-5 border border-border bg-card card-shadow">
+        <GlassCard liftOnHover className="p-5">
           <p className="label-caps text-muted-foreground mb-2">Monthly Salary</p>
-          <p className="text-2xl font-display font-bold text-foreground">{formatCurrency(monthlySalary)}</p>
-        </div>
+          <p className="text-2xl font-display font-bold text-foreground"><AnimatedNumber value={monthlySalary} /></p>
+        </GlassCard>
 
         {/* Expenses with progress bar */}
-        <div className="rounded-xl p-5 border border-border bg-card card-shadow flex flex-col gap-2">
+        <GlassCard liftOnHover className="p-5 flex flex-col gap-2">
           <p className="label-caps text-muted-foreground">Total Expenses</p>
-          <p className="text-2xl font-display font-bold text-foreground">{formatCurrency(totalExpenses)}</p>
+          <p className="text-2xl font-display font-bold text-foreground"><AnimatedNumber value={totalExpenses} /></p>
           <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-red-400 transition-all" style={{ width: `${expenseRatio}%` }} />
+            <div className="progress-gradient-purple" style={{ width: `${expenseRatio}%` }} />
           </div>
           <p className="text-xs text-muted-foreground">{expenseRatio.toFixed(0)}% of salary</p>
-        </div>
+        </GlassCard>
 
         {/* Disposable income */}
-        <div className="rounded-xl p-5 border border-border bg-card card-shadow">
+        <GlassCard liftOnHover className="p-5">
           <p className="label-caps text-muted-foreground mb-2">Disposable Income</p>
           <p className={`text-2xl font-display font-bold ${disposable >= 0 ? "text-emerald" : "text-coral-DEFAULT"}`}>
-            {formatCurrency(disposable)}
+            {disposable >= 0 ? "" : "-"}<AnimatedNumber value={Math.abs(disposable)} />
           </p>
           <p className={`text-xs mt-1 flex items-center gap-1 ${disposable >= 0 ? "text-emerald" : "text-coral-DEFAULT"}`}>
             {disposable >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
             {disposable >= 0 ? "Surplus" : "Deficit"} this month
           </p>
-        </div>
+        </GlassCard>
 
         {/* Activity pills */}
-        <div className="rounded-xl p-5 border border-border bg-card card-shadow">
+        <GlassCard liftOnHover className="p-5">
           <p className="label-caps text-muted-foreground mb-3">Activity</p>
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm">
@@ -193,11 +185,11 @@ export default function Dashboard() {
               <span className="text-foreground">{pendingSplits} pending split{pendingSplits !== 1 ? "s" : ""}</span>
             </div>
           </div>
-        </div>
-      </div>
+        </GlassCard>
+      </StaggerList>
 
       {/* Recent Transactions */}
-      <div className="bg-card rounded-xl border border-border card-shadow overflow-hidden">
+      <GlassCard className="p-0 overflow-hidden border-none shadow-none sm:border-solid sm:shadow-md">
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
           <h3 className="font-display font-semibold text-foreground">Recent Transactions</h3>
           <Link to="/transactions" className="label-caps text-primary hover:opacity-70 transition-opacity">
@@ -207,7 +199,7 @@ export default function Dashboard() {
         {transactions.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-10">No transactions yet.</p>
         ) : (
-          <div className="divide-y divide-border">
+          <StaggerList delayMs={30} className="divide-y divide-border flex flex-col space-y-0">
             {transactions.map((tx) => {
               const isIncome = tx.type === "deposit" || tx.type === "loan";
               return (
@@ -247,9 +239,9 @@ export default function Dashboard() {
                 </div>
               );
             })}
-          </div>
+          </StaggerList>
         )}
-      </div>
+      </GlassCard>
     </div>
   );
 }

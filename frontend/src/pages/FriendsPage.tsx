@@ -5,6 +5,8 @@ import { Check, X, UserPlus, Search, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { GlassCard } from "@/components/GlassCard";
+import { StaggerList } from "@/components/StaggerList";
 
 export default function FriendsPage() {
   const [search, setSearch] = useState("");
@@ -84,7 +86,7 @@ export default function FriendsPage() {
 
       {/* Pending requests */}
       {pending.length > 0 && (
-        <div className="bg-card border border-border rounded-xl card-shadow overflow-hidden">
+        <GlassCard className="p-0 overflow-hidden border-none shadow-none sm:border-solid sm:shadow-md">
           <div className="px-6 py-4 border-b border-border">
             <h3 className="font-display font-semibold text-foreground">
               Pending Requests{" "}
@@ -93,7 +95,7 @@ export default function FriendsPage() {
               </span>
             </h3>
           </div>
-          <div className="divide-y divide-border">
+          <StaggerList delayMs={30} className="divide-y divide-border">
             {pending.map((f) => (
               <div key={f.friendship_id} className="flex items-center justify-between px-6 py-3">
                 <div className="flex items-center gap-3">
@@ -124,8 +126,8 @@ export default function FriendsPage() {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
+          </StaggerList>
+        </GlassCard>
       )}
 
       {/* Search */}
@@ -141,8 +143,8 @@ export default function FriendsPage() {
 
       {/* Friends grid */}
       {filteredAccepted.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-10 text-center card-shadow">
-          <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+        <div className="glass-secondary rounded-xl p-10 text-center">
+          <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40 animate-coin-bounce" />
           <p className="font-display font-semibold text-foreground mb-1">
             {search ? "No friends match your search" : "No friends yet"}
           </p>
@@ -151,9 +153,9 @@ export default function FriendsPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <StaggerList delayMs={40} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredAccepted.map((f) => (
-            <div key={f.friendship_id} className="bg-card border border-border rounded-xl p-4 card-shadow flex items-center gap-3">
+            <GlassCard liftOnHover key={f.friendship_id} className="p-4 flex items-center gap-3">
               <div className="w-11 h-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-display font-bold text-sm shrink-0">
                 {initials(f.username)}
               </div>
@@ -174,9 +176,9 @@ export default function FriendsPage() {
               >
                 <X className="h-4 w-4" />
               </Button>
-            </div>
+            </GlassCard>
           ))}
-        </div>
+        </StaggerList>
       )}
     </div>
   );
