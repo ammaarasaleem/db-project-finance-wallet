@@ -885,4 +885,169 @@
       transition-duration: 0.01ms !important;
     }
   }
+
+  /* ══════════════════════════════════════════════════
+     LOGIN / SIGNUP LEFT PANEL — theme-aware
+     All colours come from CSS custom properties so
+     they automatically respond to the active accent
+     theme and light / dark mode.
+     ══════════════════════════════════════════════════ */
+
+  /* Base panel — deep gradient using accent tints */
+  .login-panel {
+    background: hsl(var(--primary) / 0.92);
+  }
+
+  /* Layered gradient that picks up the accent tint vars */
+  .login-panel-bg {
+    background:
+      radial-gradient(ellipse 100% 60% at 20% -10%, hsl(var(--primary) / 0.85) 0%, transparent 60%),
+      radial-gradient(ellipse 70% 50% at 80% 110%,  hsl(var(--primary) / 0.60) 0%, transparent 55%),
+      radial-gradient(ellipse 90% 80% at 50%  50%,  hsl(var(--primary) / 0.55) 0%, transparent 70%),
+      linear-gradient(145deg, hsl(var(--primary)) 0%, hsl(var(--secondary) / 0.6) 100%);
+  }
+
+  /* Animated accent blobs */
+  .login-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(64px);
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+  .login-blob-1 {
+    width: 420px;
+    height: 420px;
+    top: -80px;
+    left: -60px;
+    background: var(--accent-glow-strong);
+    opacity: 0.55;
+    animation: login-blob-drift 12s ease-in-out infinite alternate;
+  }
+  .login-blob-2 {
+    width: 340px;
+    height: 340px;
+    bottom: -60px;
+    right: -80px;
+    background: var(--accent-glow-strong);
+    opacity: 0.45;
+    animation: login-blob-drift 16s ease-in-out 3s infinite alternate-reverse;
+  }
+  .login-blob-3 {
+    width: 260px;
+    height: 260px;
+    top: 50%;
+    left: 55%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.08);
+    opacity: 0.6;
+    animation: login-blob-pulse 8s ease-in-out 1s infinite alternate;
+  }
+
+  @keyframes login-blob-drift {
+    0%   { transform: translate(0,   0)   scale(1); }
+    50%  { transform: translate(30px, 20px) scale(1.08); }
+    100% { transform: translate(-20px, 40px) scale(0.94); }
+  }
+  @keyframes login-blob-pulse {
+    0%   { opacity: 0.35; transform: translate(-50%, -50%) scale(0.9); }
+    100% { opacity: 0.65; transform: translate(-50%, -50%) scale(1.1); }
+  }
+
+  /* Noise overlay */
+  .login-noise {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 260px 260px;
+    opacity: 0.04;
+    mix-blend-mode: overlay;
+    z-index: 1;
+  }
+
+  /* Brand badge in the top-left */
+  .login-brand-badge {
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.30);
+    backdrop-filter: blur(10px);
+  }
+
+  /* Logo container — glowing ring + float */
+  .login-logo-ring {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.30);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(12px);
+    box-shadow:
+      0 0 0 12px rgba(255, 255, 255, 0.06),
+      0 0 0 24px rgba(255, 255, 255, 0.03),
+      0 24px 64px rgba(0, 0, 0, 0.25),
+      0 0 80px var(--accent-glow-strong);
+    animation: login-logo-float 5s ease-in-out infinite;
+  }
+  .login-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 12px;
+    box-sizing: border-box;
+    filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.30)) brightness(1.05);
+    border-radius: 24px;
+  }
+  @keyframes login-logo-float {
+    0%, 100% { transform: translateY(0);    }
+    50%       { transform: translateY(-12px); }
+  }
+
+  /* Feature pills at the bottom */
+  .login-feature-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.20);
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 12px;
+    font-weight: 600;
+    backdrop-filter: blur(8px);
+    transition: background 200ms ease, transform 200ms ease;
+  }
+  .login-feature-pill:hover {
+    background: rgba(255, 255, 255, 0.20);
+    transform: translateY(-2px);
+  }
+
+  .logo-fill {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transform: scale(1.28);
+    transform-origin: center;
+    display: block;
+  }
+
+  .logo-accent-bg {
+    background: hsl(var(--primary) / 0.14);
+    border: 1px solid hsl(var(--primary) / 0.24);
+  }
+
+  @media (max-width: 1024px) {
+    .login-logo-ring {
+      width: 180px;
+      height: 180px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .login-logo-ring {
+      width: 160px;
+      height: 160px;
+    }
+  }
 }

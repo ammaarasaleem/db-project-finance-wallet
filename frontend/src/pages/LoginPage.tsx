@@ -42,48 +42,77 @@ export default function LoginPage() {
   const loading = loginMutation.isPending || registerMutation.isPending;
 
   return (
-    <div className="min-h-screen flex bg-background">
-      {/* Left decorative panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-primary flex-col justify-between p-12 relative overflow-hidden">
-        <CashParticles count={25} type="rain" />
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-white blur-3xl" />
-          <div className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full bg-white blur-2xl" />
+    <div className="min-h-screen flex flex-col lg:flex-row bg-background">
+      {/* ── Left decorative panel ── */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 relative overflow-hidden login-panel">
+
+        {/* Theme-aware layered gradient base */}
+        <div className="absolute inset-0 login-panel-bg" />
+
+        {/* Animated accent-coloured blobs */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="login-blob login-blob-1" />
+          <div className="login-blob login-blob-2" />
+          <div className="login-blob login-blob-3" />
         </div>
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-12">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-display font-black text-white">FT</div>
-            <span className="font-display text-xl font-black text-white">FinTrack</span>
+
+        {/* Subtle noise film */}
+        <div className="absolute inset-0 login-noise pointer-events-none" />
+
+        {/* Floating cash particles */}
+        <CashParticles count={18} type="rain" />
+
+        {/* Brand row */}
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-lg overflow-hidden">
+            <img src="/logo.png" alt="FinTrack" className="logo-fill" />
           </div>
-          <h2 className="font-display text-4xl font-bold text-white leading-tight mb-4">
+          <span className="font-display text-xl font-black text-white drop-shadow-sm">FinTrack</span>
+        </div>
+
+        {/* Centrepiece: logo + copy */}
+        <div className="relative z-10 flex flex-col items-center justify-center flex-1 py-8">
+          <div className="login-logo-ring mb-8">
+            <img
+              src="/logo2.png"
+              alt="FinTrack logo"
+              className="login-logo-img"
+              draggable={false}
+            />
+          </div>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight mb-3 text-center drop-shadow-md">
             Take control of<br />your finances
           </h2>
-          <p className="text-white/70 text-base leading-relaxed max-w-sm">
-            Wallet transfers, bill splits, loans, rotating savings (Khata), and personal budgeting — all in one place.
+          <p className="text-white/70 text-base leading-relaxed max-w-xs text-center">
+            Wallet transfers, bill splits, loans, rotating savings, and personal budgeting — all in one place.
           </p>
         </div>
-        <div className="relative z-10 space-y-3">
+
+        {/* Feature pills */}
+        <div className="relative z-10 flex flex-wrap gap-2 justify-center">
           {[
             { icon: "⇄", label: "Peer-to-peer transfers" },
-            { icon: "🍽", label: "Bill splits with friends" },
-            { icon: "📖", label: "Khata rotating savings" },
-            { icon: "🔒", label: "Goal-based vaults" },
+            { icon: "🍽", label: "Bill splits" },
+            { icon: "📖", label: "Khata savings" },
+            { icon: "🔒", label: "Goal vaults" },
           ].map(({ icon, label }) => (
-            <div key={label} className="flex items-center gap-3 text-white/80 text-sm">
-              <span className="text-base">{icon}</span>
+            <div key={label} className="login-feature-pill">
+              <span>{icon}</span>
               <span>{label}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Right: form panel */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-surface-container-low/30 relative">
+      {/* ── Right: form panel ── */}
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-8 lg:p-10 bg-surface-container-low/30 relative">
         <CashParticles count={15} type="mixed" className="opacity-30 lg:hidden" />
-        <GlassCard className="w-full max-w-sm relative z-10 p-8 sm:p-10 border-border/50">
+        <GlassCard className="w-full max-w-sm relative z-10 p-6 sm:p-8 lg:p-10 border-border/50">
           {/* Mobile brand */}
           <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <div className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-display font-black text-sm">FT</div>
+            <div className="w-9 h-9 rounded-lg overflow-hidden bg-[#ebebeb]">
+                <img src="/logo.png" alt="FinTrack" className="logo-fill" />
+            </div>
             <span className="font-display text-lg font-black text-foreground">FinTrack</span>
           </div>
 

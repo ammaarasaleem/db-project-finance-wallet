@@ -59,10 +59,10 @@ export function AppSidebar({ mobileOpen = false, onClose }: AppSidebarProps) {
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Brand */}
-      <div className="px-6 py-5 border-b border-border flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-display font-black text-sm shrink-0">
-            FT
+      <div className="px-4 py-4 border-b border-border flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3 px-3 py-2 rounded-xl logo-accent-bg">
+          <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 logo-accent-bg">
+            <img src="/logo.png" alt="FinTrack" className="logo-fill" />
           </div>
           <div>
             <h1 className="font-display text-base font-black tracking-tight text-foreground leading-none">
