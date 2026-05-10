@@ -91,8 +91,10 @@ const depositToVault = async (req, res) => {
       .input('newSaved', sql.Decimal(19, 4), newSaved)
       .input('isAchieved', sql.Bit, isAchieved)
       .query(`
+        BEGIN TRAN;
         UPDATE Wallets SET balance = balance - @amount WHERE user_id = @uid;
         UPDATE savingVault SET savedAmount = @newSaved, isAchieved = @isAchieved WHERE id = @id;
+        COMMIT TRAN;
       `);
 
     res.json({
@@ -137,8 +139,10 @@ const withdrawFromVault = async (req, res) => {
       .input('id', sql.Int, id)
       .input('newSaved', sql.Decimal(19, 4), newSaved)
       .query(`
+        BEGIN TRAN;
         UPDATE Wallets SET balance = balance + @amount WHERE user_id = @uid;
         UPDATE savingVault SET savedAmount = @newSaved, isAchieved = 0 WHERE id = @id;
+        COMMIT TRAN;
       `);
 
     res.json({ success: true, message: `Withdrawn $${amount} from vault.`, data: { savedAmount: newSaved } });
@@ -169,8 +173,10 @@ const deleteVault = async (req, res) => {
       .input('amount', sql.Decimal(19, 4), savedAmount)
       .input('id', sql.Int, id)
       .query(`
+        BEGIN TRAN;
         UPDATE Wallets SET balance = balance + @amount WHERE user_id = @uid;
         DELETE FROM savingVault WHERE id = @id;
+        COMMIT TRAN;
       `);
 
     res.json({ success: true, message: `Vault deleted. $${savedAmount} returned to wallet.` });

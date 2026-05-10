@@ -6,6 +6,7 @@ const typeConfig: Record<string, { cls: string; dot: string; label: string }> = 
   bill_split:     { cls: "bg-violet-500/10 text-violet-600 border-violet-500/20 dark:text-violet-400", dot: "bg-violet-500", label: "Bill Split" },
   loan:           { cls: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20 dark:text-indigo-400", dot: "bg-indigo-500", label: "Loan" },
   loan_repayment: { cls: "bg-teal-500/10 text-teal-600 border-teal-500/20 dark:text-teal-400",        dot: "bg-teal-500",   label: "Repayment" },
+  khata_contribution: { cls: "bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-500/20 dark:text-fuchsia-400", dot: "bg-fuchsia-500", label: "Khata Contrib" },
 };
 
 const statusConfig: Record<string, { cls: string; dot: string }> = {
