@@ -1,4 +1,3 @@
-
 CREATE DATABASE finance_wallet;
 GO
 USE finance_wallet;
@@ -23,7 +22,7 @@ CREATE TABLE Wallets (
     balance     DECIMAL(12, 2)  NOT NULL DEFAULT 0.00,
     currency    VARCHAR(10)     NOT NULL DEFAULT 'USD',
     updated_at  DATETIME        DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT Wallets_balance_non_negative CHECK (balance >= 0),   -- NEW: prevent negative balance
+    CONSTRAINT Wallets_balance_non_negative CHECK (balance >= 0),
     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
 );
 GO
@@ -47,7 +46,8 @@ CREATE TABLE Transactions (
     receiver_id      INT             NOT NULL,
     amount           DECIMAL(12, 2)  NOT NULL CHECK (amount > 0),
     type             VARCHAR(20)     NOT NULL
-                                     CHECK (type IN ('transfer','bill_split','loan','loan_repayment','deposit','khata_contribution')),
+                                     -- UPDATED: added 'deposit' and 'withdrawal' to support wallet funding
+                                     CHECK (type IN ('transfer','bill_split','loan','loan_repayment','deposit','withdrawal')),
     status           VARCHAR(50)     NOT NULL DEFAULT 'pending'
                                      CHECK (status IN ('pending','completed','failed','cancelled')),
     note             VARCHAR(255),
@@ -91,7 +91,7 @@ CREATE TABLE Loans (
                                    CHECK (status IN ('requested','active','repaid','rejected')),
     note           VARCHAR(255),
     created_at     DATETIME        DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT Loans_repaid_not_exceed CHECK (amount_repaid <= amount),  -- NEW
+    CONSTRAINT Loans_repaid_not_exceed CHECK (amount_repaid <= amount),
     FOREIGN KEY (lender_id)   REFERENCES Users(user_id),
     FOREIGN KEY (borrower_id) REFERENCES Users(user_id)
 );
@@ -103,7 +103,7 @@ CREATE TABLE KhataGroups (
     Name               NVARCHAR(255)    NOT NULL,
     ContributionAmount DECIMAL(19,4)    NOT NULL CHECK (ContributionAmount > 0),
     CycleType          NVARCHAR(20)     NOT NULL DEFAULT 'Monthly'
-                                        CHECK (CycleType IN ('Monthly','Weekly')),  -- NEW constraint
+                                        CHECK (CycleType IN ('Monthly','Weekly')),
     StartDate          DATE             NOT NULL,
     IsActive           BIT              NOT NULL DEFAULT 1,
     CreatedOn          DATETIMEOFFSET(5) NOT NULL DEFAULT SYSDATETIMEOFFSET(),
@@ -127,15 +127,18 @@ CREATE TABLE Contributions (
     Id          BIGINT           PRIMARY KEY IDENTITY(1,1),
     GroupId     INT              NOT NULL,
     UserId      INT              NOT NULL,
-    CycleNumber SMALLINT         NOT NULL CHECK (CycleNumber > 0),   -- NEW
+    CycleNumber SMALLINT         NOT NULL CHECK (CycleNumber > 0),
     AmountPaid  DECIMAL(19,4)    NOT NULL CHECK (AmountPaid > 0),
     PaidOn      DATETIMEOFFSET(5) NOT NULL DEFAULT SYSDATETIMEOFFSET(),
     CONSTRAINT Contributions_FK_Members FOREIGN KEY (GroupId, UserId)
         REFERENCES KhataMembers(GroupId, UserId) ON DELETE CASCADE,
-    CONSTRAINT Contributions_NoDuplicate UNIQUE (GroupId, UserId, CycleNumber)  -- NEW: one payment per cycle
+    CONSTRAINT Contributions_NoDuplicate UNIQUE (GroupId, UserId, CycleNumber)
 );
 GO
 
+-- NORMALIZATION FIX (3NF): removed user_Name column.
+-- user_Name was transitively dependent: id → userID → user_Name.
+-- username is now retrieved via JOIN with Users table.
 CREATE TABLE savingVault (
     id           INT              PRIMARY KEY IDENTITY(1,1),
     userID       INT              NOT NULL,
@@ -176,7 +179,7 @@ GO
 
 
 
--- TRIGGER 1 (existing, kept): Auto-update Wallets.updated_at on balance change
+-- TRIGGER 1: Auto-update Wallets.updated_at on balance change
 CREATE TRIGGER trg_Wallets_UpdateUpdatedAt
 ON Wallets
 AFTER UPDATE
@@ -190,7 +193,7 @@ BEGIN
 END;
 GO
 
--- TRIGGER 2 (NEW): Auto-mark saving vault as achieved when savedAmount >= targetAmount
+-- TRIGGER 2: Auto-mark saving vault as achieved when savedAmount >= targetAmount
 CREATE TRIGGER trg_SavingVault_CheckAchieved
 ON savingVault
 AFTER UPDATE
@@ -206,7 +209,7 @@ BEGIN
 END;
 GO
 
--- TRIGGER 3 (NEW): Auto-mark loan as 'repaid' when amount_repaid reaches full amount
+-- TRIGGER 3: Auto-mark loan as 'repaid' when amount_repaid reaches full amount
 CREATE TRIGGER trg_Loans_AutoRepaid
 ON Loans
 AFTER UPDATE
@@ -222,7 +225,7 @@ BEGIN
 END;
 GO
 
--- TRIGGER 4 (NEW): Prevent a user from sending a friend request to themselves
+-- TRIGGER 4: Prevent a user from sending a friend request to themselves
 CREATE TRIGGER trg_Friendships_NoSelfFriend
 ON Friendships
 INSTEAD OF INSERT
@@ -241,7 +244,7 @@ GO
 
 
 
--- VIEW 1: Full user wallet summary (used by dashboard)
+-- VIEW 1: Full user wallet summary
 CREATE VIEW vw_UserWalletSummary AS
 SELECT
     u.user_id,
@@ -256,6 +259,7 @@ JOIN Wallets w ON u.user_id = w.user_id
 WHERE u.is_active = 1;
 GO
 
+-- VIEW 2: Active loans
 CREATE VIEW vw_ActiveLoans AS
 SELECT
     l.loan_id,
@@ -277,6 +281,7 @@ JOIN Users borrower ON l.borrower_id = borrower.user_id
 WHERE l.status IN ('active', 'requested');
 GO
 
+-- VIEW 3: Unpaid bill shares
 CREATE VIEW vw_UnpaidBillShares AS
 SELECT
     bsp.participant_id,
@@ -293,6 +298,7 @@ JOIN Users creator   ON creator.user_id = bs.created_by
 WHERE bsp.is_paid = 0;
 GO
 
+-- VIEW 4: Khata group overview
 CREATE VIEW vw_KhataGroupOverview AS
 SELECT
     kg.Id                                                    AS group_id,
@@ -313,11 +319,13 @@ GROUP BY kg.Id, kg.Name, creator.username,
          kg.StartDate, kg.IsActive;
 GO
 
+-- VIEW 5: Vault progress
+-- NORMALIZATION FIX: removed sv.user_Name, now uses u.username via JOIN
 CREATE VIEW vw_VaultProgress AS
 SELECT
     sv.id                                                           AS vault_id,
     u.username,
-    sv.user_Name                                                    AS vault_name,
+    u.username                                                      AS vault_name,
     sv.targetAmount,
     sv.savedAmount,
     CAST(sv.savedAmount * 100.0 / sv.targetAmount AS DECIMAL(5,2)) AS progress_percent,
@@ -330,6 +338,7 @@ FROM savingVault sv
 JOIN Users u ON sv.userID = u.user_id;
 GO
 
+-- VIEW 6: Financial health
 CREATE VIEW vw_FinancialHealth AS
 SELECT
     u.user_id,
@@ -373,7 +382,6 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Check duplicates
     IF EXISTS (SELECT 1 FROM Users WHERE email = @email OR username = @username)
     BEGIN
         RAISERROR('Username or email already exists.', 16, 1);
@@ -387,7 +395,6 @@ BEGIN
 
     SET @new_user_id = SCOPE_IDENTITY();
 
-    -- Auto-create wallet
     INSERT INTO Wallets (user_id, balance, currency)
     VALUES (@new_user_id, 0.00, 'USD');
 
@@ -395,6 +402,7 @@ BEGIN
 END;
 GO
 
+-- SP 2: Transfer money between wallets
 CREATE PROCEDURE sp_TransferMoney
     @sender_id   INT,
     @receiver_id INT,
@@ -406,14 +414,12 @@ BEGIN
     BEGIN TRANSACTION;
 
     BEGIN TRY
-        -- Validate amount
         IF @amount <= 0
         BEGIN
             RAISERROR('Amount must be greater than zero.', 16, 1);
             ROLLBACK; RETURN;
         END
 
-        -- Check sender balance
         DECLARE @sender_balance DECIMAL(12,2);
         SELECT @sender_balance = balance FROM Wallets WHERE user_id = @sender_id;
 
@@ -423,13 +429,9 @@ BEGIN
             ROLLBACK; RETURN;
         END
 
-        -- Deduct from sender
         UPDATE Wallets SET balance = balance - @amount WHERE user_id = @sender_id;
-
-        -- Credit receiver
         UPDATE Wallets SET balance = balance + @amount WHERE user_id = @receiver_id;
 
-        -- Record transaction
         INSERT INTO Transactions (sender_id, receiver_id, amount, type, status, note)
         VALUES (@sender_id, @receiver_id, @amount, 'transfer', 'completed', @note);
 
@@ -443,6 +445,7 @@ BEGIN
 END;
 GO
 
+-- SP 3: Approve a loan
 CREATE PROCEDURE sp_ApproveLoan
     @loan_id   INT,
     @lender_id INT
@@ -498,6 +501,7 @@ BEGIN
 END;
 GO
 
+-- SP 4: Repay a loan
 CREATE PROCEDURE sp_RepayLoan
     @loan_id     INT,
     @borrower_id INT,
@@ -508,10 +512,10 @@ BEGIN
     BEGIN TRANSACTION;
 
     BEGIN TRY
-        DECLARE @lender_id     INT,
-                @loan_amount   DECIMAL(12,2),
+        DECLARE @lender_id      INT,
+                @loan_amount    DECIMAL(12,2),
                 @already_repaid DECIMAL(12,2),
-                @loan_status   VARCHAR(25);
+                @loan_status    VARCHAR(25);
 
         SELECT @lender_id      = lender_id,
                @loan_amount    = amount,
@@ -538,7 +542,6 @@ BEGIN
         UPDATE Wallets SET balance = balance - @amount WHERE user_id = @borrower_id;
         UPDATE Wallets SET balance = balance + @amount WHERE user_id = @lender_id;
         UPDATE Loans   SET amount_repaid = amount_repaid + @amount WHERE loan_id = @loan_id;
-        -- trg_Loans_AutoRepaid trigger handles status update automatically
 
         INSERT INTO Transactions (sender_id, receiver_id, amount, type, status, note)
         VALUES (@borrower_id, @lender_id, @amount, 'loan_repayment', 'completed', 'Loan repayment');
@@ -555,6 +558,7 @@ BEGIN
 END;
 GO
 
+-- SP 5: Create a bill split
 CREATE PROCEDURE sp_CreateBillSplit
     @created_by   INT,
     @total_amount DECIMAL(12,2),
@@ -570,6 +574,7 @@ BEGIN
 END;
 GO
 
+-- SP 6: Pay a bill share
 CREATE PROCEDURE sp_PayBillShare
     @split_id INT,
     @user_id  INT
@@ -624,6 +629,7 @@ BEGIN
 END;
 GO
 
+-- SP 7: Deposit to vault
 CREATE PROCEDURE sp_DepositToVault
     @vault_id INT,
     @user_id  INT,
@@ -654,8 +660,8 @@ BEGIN
         IF @balance < @amount
             BEGIN RAISERROR('Insufficient wallet balance.', 16, 1); ROLLBACK; RETURN; END
 
-        UPDATE Wallets    SET balance     = balance - @amount       WHERE user_id = @user_id;
-        UPDATE savingVault SET savedAmount = savedAmount + @amount   WHERE id      = @vault_id;
+        UPDATE Wallets     SET balance     = balance - @amount     WHERE user_id = @user_id;
+        UPDATE savingVault SET savedAmount = savedAmount + @amount  WHERE id      = @vault_id;
         -- trg_SavingVault_CheckAchieved trigger auto-marks achieved
 
         COMMIT;
@@ -671,6 +677,8 @@ BEGIN
 END;
 GO
 
+-- SP 8: Full financial report
+-- NORMALIZATION FIX: replaced user_Name with u.username via JOIN
 CREATE PROCEDURE sp_GetUserFinancialReport
     @user_id INT
 AS
@@ -696,13 +704,13 @@ BEGIN
     FROM Loans
     WHERE borrower_id = @user_id AND status = 'active';
 
-    -- Saving vaults progress
-  SELECT u.username AS vault_name, sv.targetAmount, sv.savedAmount,
-       CAST(sv.savedAmount * 100.0 / sv.targetAmount AS DECIMAL(5,2)) AS progress_percent,
-       sv.deadline, sv.isAchieved
-FROM savingVault sv
-JOIN Users u ON sv.userID = u.user_id
-WHERE sv.userID = @user_id;
+    -- Saving vaults progress (JOIN replaces user_Name)
+    SELECT u.username AS vault_name, sv.targetAmount, sv.savedAmount,
+           CAST(sv.savedAmount * 100.0 / sv.targetAmount AS DECIMAL(5,2)) AS progress_percent,
+           sv.deadline, sv.isAchieved
+    FROM savingVault sv
+    JOIN Users u ON sv.userID = u.user_id
+    WHERE sv.userID = @user_id;
 
     -- Last 5 transactions
     SELECT TOP 5 t.type, t.amount, t.status, t.created_at,
@@ -715,6 +723,8 @@ WHERE sv.userID = @user_id;
 END;
 GO
 
+
+-- ── SAMPLE DATA ──────────────────────────────────────────────
 
 INSERT INTO Users (username, email, phone, password_hash) VALUES
     ('alice',   'alice@email.com',   '555-0101', 'hashed_pw_1'),
@@ -755,9 +765,9 @@ INSERT INTO BillSplitParticipants (split_id, user_id, amount_owed, is_paid, tran
     (2, 4, 20.00, 0, NULL);
 
 INSERT INTO Loans (lender_id, borrower_id, amount, amount_repaid, due_date, status, note) VALUES
-    (1, 2, 100.00, 40.00, '2026-06-01', 'active',   'Loan for car repair'),
-    (3, 4,  50.00,  0.00, '2026-04-15', 'active',   'Emergency loan'),
-    (2, 1,  75.00, 75.00, '2026-02-01', 'repaid',   'Concert tickets');
+    (1, 2, 100.00, 40.00, '2026-06-01', 'active', 'Loan for car repair'),
+    (3, 4,  50.00,  0.00, '2026-04-15', 'active', 'Emergency loan'),
+    (2, 1,  75.00, 75.00, '2026-02-01', 'repaid', 'Concert tickets');
 
 INSERT INTO FixedSalary (user_id, amount, currency, pay_day) VALUES
     (1, 3000.00, 'USD',  1),
@@ -789,12 +799,15 @@ INSERT INTO KhataMembers (GroupId, UserId, TurnOrder) VALUES
 INSERT INTO Contributions (GroupId, UserId, CycleNumber, AmountPaid) VALUES
     (1, 1, 1, 500.00);
 
+-- NORMALIZATION FIX: no user_Name in INSERT
 INSERT INTO savingVault (userID, targetAmount, savedAmount, deadline) VALUES
     (1, 1000.00, 200.00, '2026-12-01'),
-    (2,     500.00,  50.00, '2026-09-01'),
-    (3,     1500.00, 900.00, '2026-07-01');
+    (2,  500.00,  50.00, '2026-09-01'),
+    (3, 1500.00, 900.00, '2026-07-01');
 GO
 
+
+-- ── QUERIES ───────────────────────────────────────────────────
 
 -- Q1: Use wallet summary view
 SELECT * FROM vw_UserWalletSummary;
