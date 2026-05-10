@@ -139,7 +139,6 @@ GO
 CREATE TABLE savingVault (
     id           INT              PRIMARY KEY IDENTITY(1,1),
     userID       INT              NOT NULL,
-    user_Name    NVARCHAR(225)    NOT NULL,
     targetAmount DECIMAL(19,4)    NOT NULL CHECK (targetAmount > 0),
     savedAmount  DECIMAL(19,4)    NOT NULL DEFAULT 0 CHECK (savedAmount >= 0),
     deadline     DATE,
@@ -698,11 +697,12 @@ BEGIN
     WHERE borrower_id = @user_id AND status = 'active';
 
     -- Saving vaults progress
-    SELECT user_Name AS vault_name, targetAmount, savedAmount,
-           CAST(savedAmount * 100.0 / targetAmount AS DECIMAL(5,2)) AS progress_percent,
-           deadline, isAchieved
-    FROM savingVault
-    WHERE userID = @user_id;
+  SELECT u.username AS vault_name, sv.targetAmount, sv.savedAmount,
+       CAST(sv.savedAmount * 100.0 / sv.targetAmount AS DECIMAL(5,2)) AS progress_percent,
+       sv.deadline, sv.isAchieved
+FROM savingVault sv
+JOIN Users u ON sv.userID = u.user_id
+WHERE sv.userID = @user_id;
 
     -- Last 5 transactions
     SELECT TOP 5 t.type, t.amount, t.status, t.created_at,
@@ -789,10 +789,10 @@ INSERT INTO KhataMembers (GroupId, UserId, TurnOrder) VALUES
 INSERT INTO Contributions (GroupId, UserId, CycleNumber, AmountPaid) VALUES
     (1, 1, 1, 500.00);
 
-INSERT INTO savingVault (userID, user_Name, targetAmount, savedAmount, deadline) VALUES
-    (1, 'Emergency Fund', 1000.00, 200.00, '2026-12-01'),
-    (2, 'Travel Fund',     500.00,  50.00, '2026-09-01'),
-    (3, 'New Laptop',     1500.00, 900.00, '2026-07-01');
+INSERT INTO savingVault (userID, targetAmount, savedAmount, deadline) VALUES
+    (1, 1000.00, 200.00, '2026-12-01'),
+    (2,     500.00,  50.00, '2026-09-01'),
+    (3,     1500.00, 900.00, '2026-07-01');
 GO
 
 

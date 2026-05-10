@@ -1,25 +1,24 @@
 const { getPool, sql } = require('../config/db');
 
 // POST /api/vaults  - Create saving vault
+// CHANGED: removed vault_name from req.body and INSERT query (3NF fix)
 const createVault = async (req, res) => {
-  const { vault_name, targetAmount, deadline } = req.body;
+  const { targetAmount, deadline } = req.body;
   const userID = req.user.user_id;
-  const username = req.user.username;
 
-  if (!vault_name || !targetAmount || targetAmount <= 0)
-    return res.status(400).json({ success: false, message: 'vault_name and valid targetAmount required.' });
+  if (!targetAmount || targetAmount <= 0)
+    return res.status(400).json({ success: false, message: 'Valid targetAmount required.' });
 
   try {
     const pool = await getPool();
     const result = await pool.request()
-      .input('userID', sql.Int, userID)
-      .input('user_Name', sql.NVarChar, vault_name)
+      .input('userID',       sql.Int,           userID)
       .input('targetAmount', sql.Decimal(19, 4), targetAmount)
-      .input('deadline', sql.Date, deadline || null)
+      .input('deadline',     sql.Date,           deadline || null)
       .query(`
-        INSERT INTO savingVault (userID, user_Name, targetAmount, deadline)
+        INSERT INTO savingVault (userID, targetAmount, deadline)
         OUTPUT INSERTED.id
-        VALUES (@userID, @user_Name, @targetAmount, @deadline)
+        VALUES (@userID, @targetAmount, @deadline)
       `);
 
     res.status(201).json({ success: true, message: 'Vault created.', data: { vault_id: result.recordset[0].id } });
@@ -29,18 +28,20 @@ const createVault = async (req, res) => {
 };
 
 // GET /api/vaults  - My vaults
+// CHANGED: removed user_Name column, added JOIN with Users to get username as vault_name
 const getMyVaults = async (req, res) => {
   try {
     const pool = await getPool();
     const result = await pool.request()
       .input('uid', sql.Int, req.user.user_id)
       .query(`
-        SELECT id, user_Name AS vault_name, targetAmount, savedAmount,
-               CAST(savedAmount * 100.0 / NULLIF(targetAmount, 0) AS DECIMAL(5,2)) AS progress_percent,
-               deadline, isAchieved, createdON
-        FROM savingVault
-        WHERE userID = @uid
-        ORDER BY createdON DESC
+        SELECT sv.id, u.username AS vault_name, sv.targetAmount, sv.savedAmount,
+               CAST(sv.savedAmount * 100.0 / sv.targetAmount AS DECIMAL(5,2)) AS progress_percent,
+               sv.deadline, sv.isAchieved, sv.createdON
+        FROM savingVault sv
+        JOIN Users u ON sv.userID = u.user_id
+        WHERE sv.userID = @uid
+        ORDER BY sv.createdON DESC
       `);
 
     res.json({ success: true, data: result.recordset });
@@ -85,11 +86,11 @@ const depositToVault = async (req, res) => {
     const isAchieved = newSaved >= vault.targetAmount ? 1 : 0;
 
     await pool.request()
-      .input('uid', sql.Int, user_id)
-      .input('amount', sql.Decimal(19, 4), amount)
-      .input('id', sql.Int, id)
-      .input('newSaved', sql.Decimal(19, 4), newSaved)
-      .input('isAchieved', sql.Bit, isAchieved)
+      .input('uid',        sql.Int,           user_id)
+      .input('amount',     sql.Decimal(19, 4), amount)
+      .input('id',         sql.Int,           id)
+      .input('newSaved',   sql.Decimal(19, 4), newSaved)
+      .input('isAchieved', sql.Bit,            isAchieved)
       .query(`
         UPDATE Wallets SET balance = balance - @amount WHERE user_id = @uid;
         UPDATE savingVault SET savedAmount = @newSaved, isAchieved = @isAchieved WHERE id = @id;
@@ -132,9 +133,9 @@ const withdrawFromVault = async (req, res) => {
     const newSaved = parseFloat(vault.savedAmount) - parseFloat(amount);
 
     await pool.request()
-      .input('uid', sql.Int, user_id)
-      .input('amount', sql.Decimal(19, 4), amount)
-      .input('id', sql.Int, id)
+      .input('uid',      sql.Int,           user_id)
+      .input('amount',   sql.Decimal(19, 4), amount)
+      .input('id',       sql.Int,           id)
       .input('newSaved', sql.Decimal(19, 4), newSaved)
       .query(`
         UPDATE Wallets SET balance = balance + @amount WHERE user_id = @uid;
@@ -165,9 +166,9 @@ const deleteVault = async (req, res) => {
     const { savedAmount } = vaultRes.recordset[0];
 
     await pool.request()
-      .input('uid', sql.Int, user_id)
+      .input('uid',    sql.Int,           user_id)
       .input('amount', sql.Decimal(19, 4), savedAmount)
-      .input('id', sql.Int, id)
+      .input('id',     sql.Int,           id)
       .query(`
         UPDATE Wallets SET balance = balance + @amount WHERE user_id = @uid;
         DELETE FROM savingVault WHERE id = @id;

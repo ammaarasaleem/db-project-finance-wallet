@@ -2,17 +2,17 @@ const { getPool, sql } = require('../config/db');
 
 const VaultModel = {
 
-  create: async ({ userID, vault_name, targetAmount, deadline }) => {
+  // CHANGED: removed user_Name input and column from INSERT query
+  create: async ({ userID, targetAmount, deadline }) => {
     const pool = await getPool();
     const result = await pool.request()
       .input('userID',       sql.Int,          userID)
-      .input('user_Name',    sql.NVarChar,      vault_name)
       .input('targetAmount', sql.Decimal(19,4), targetAmount)
       .input('deadline',     sql.Date,          deadline || null)
       .query(`
-        INSERT INTO savingVault (userID, user_Name, targetAmount, deadline)
+        INSERT INTO savingVault (userID, targetAmount, deadline)
         OUTPUT INSERTED.id
-        VALUES (@userID, @user_Name, @targetAmount, @deadline)
+        VALUES (@userID, @targetAmount, @deadline)
       `);
     return result.recordset[0].id;
   },
@@ -26,17 +26,19 @@ const VaultModel = {
     return result.recordset[0] || null;
   },
 
+  // CHANGED: removed user_Name column, added JOIN with Users to get username as vault_name
   getByUser: async (user_id) => {
     const pool = await getPool();
     const result = await pool.request()
       .input('uid', sql.Int, user_id)
       .query(`
-        SELECT id, user_Name AS vault_name, targetAmount, savedAmount,
-               CAST(savedAmount * 100.0 / targetAmount AS DECIMAL(5,2)) AS progress_percent,
-               deadline, isAchieved, createdON
-        FROM savingVault
-        WHERE userID = @uid
-        ORDER BY createdON DESC
+        SELECT sv.id, u.username AS vault_name, sv.targetAmount, sv.savedAmount,
+               CAST(sv.savedAmount * 100.0 / sv.targetAmount AS DECIMAL(5,2)) AS progress_percent,
+               sv.deadline, sv.isAchieved, sv.createdON
+        FROM savingVault sv
+        JOIN Users u ON sv.userID = u.user_id
+        WHERE sv.userID = @uid
+        ORDER BY sv.createdON DESC
       `);
     return result.recordset;
   },
