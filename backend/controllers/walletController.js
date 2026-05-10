@@ -32,20 +32,16 @@ const deposit = async (req, res) => {
     const pool = await getPool();
     const user_id = req.user.user_id;
 
-    // Update wallet balance
-    await pool.request()
-      .input('user_id', sql.Int, user_id)
-      .input('amount', sql.Decimal(12, 2), parsedAmount)
-      .query('UPDATE Wallets SET balance = balance + @amount, updated_at = CURRENT_TIMESTAMP WHERE user_id = @user_id');
-
-    // Record deposit transaction for audit trail
     await pool.request()
       .input('user_id', sql.Int, user_id)
       .input('amount', sql.Decimal(12, 2), parsedAmount)
       .input('note', sql.VarChar, note || 'Deposit')
       .query(`
+        BEGIN TRAN;
+        UPDATE Wallets SET balance = balance + @amount, updated_at = CURRENT_TIMESTAMP WHERE user_id = @user_id;
         INSERT INTO Transactions (sender_id, receiver_id, amount, type, status, note)
-        VALUES (@user_id, @user_id, @amount, 'deposit', 'completed', @note)
+        VALUES (@user_id, @user_id, @amount, 'deposit', 'completed', @note);
+        COMMIT TRAN;
       `);
 
     const result = await pool.request()
@@ -90,25 +86,19 @@ const transfer = async (req, res) => {
     if (balResult.recordset[0].balance < amount)
       return res.status(400).json({ success: false, message: 'Insufficient balance.' });
 
-    // Perform transfer
-    await pool.request()
-      .input('sender_id', sql.Int, sender_id)
-      .input('receiver_id', sql.Int, receiver_id)
-      .input('amount', sql.Decimal(12, 2), amount)
-      .query(`
-        UPDATE Wallets SET balance = balance - @amount WHERE user_id = @sender_id;
-        UPDATE Wallets SET balance = balance + @amount WHERE user_id = @receiver_id;
-      `);
-
-    // Record transaction
+    // Perform transfer and record transaction atomically
     await pool.request()
       .input('sender_id', sql.Int, sender_id)
       .input('receiver_id', sql.Int, receiver_id)
       .input('amount', sql.Decimal(12, 2), amount)
       .input('note', sql.VarChar, note || null)
       .query(`
+        BEGIN TRAN;
+        UPDATE Wallets SET balance = balance - @amount WHERE user_id = @sender_id;
+        UPDATE Wallets SET balance = balance + @amount WHERE user_id = @receiver_id;
         INSERT INTO Transactions (sender_id, receiver_id, amount, type, status, note)
-        VALUES (@sender_id, @receiver_id, @amount, 'transfer', 'completed', @note)
+        VALUES (@sender_id, @receiver_id, @amount, 'transfer', 'completed', @note);
+        COMMIT TRAN;
       `);
 
     res.json({ success: true, message: `Transferred $${amount} to ${receiver_username} successfully.` });
@@ -161,9 +151,9 @@ const getSummary = async (req, res) => {
       pool.request().input('uid', sql.Int, user_id)
         .query('SELECT balance, currency FROM Wallets WHERE user_id = @uid'),
       pool.request().input('uid', sql.Int, user_id)
-        .query('SELECT COALESCE(SUM(amount),0) AS total FROM Transactions WHERE sender_id=@uid AND status=\'completed\''),
+        .query('SELECT COALESCE(SUM(amount),0) AS total FROM Transactions WHERE sender_id=@uid AND type != \'deposit\' AND status=\'completed\''),
       pool.request().input('uid', sql.Int, user_id)
-        .query('SELECT COALESCE(SUM(amount),0) AS total FROM Transactions WHERE receiver_id=@uid AND status=\'completed\''),
+        .query('SELECT COALESCE(SUM(amount),0) AS total FROM Transactions WHERE receiver_id=@uid AND type NOT IN (\'deposit\', \'khata_contribution\') AND status=\'completed\''),
       pool.request().input('uid', sql.Int, user_id)
         .query('SELECT COALESCE(SUM(amount),0) AS total FROM FixedExpenses WHERE user_id=@uid AND is_active=1'),
       pool.request().input('uid', sql.Int, user_id)

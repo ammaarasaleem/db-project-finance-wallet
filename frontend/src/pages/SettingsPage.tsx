@@ -1,17 +1,32 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { api } from "@/lib/api";
 import { GlassCard } from "@/components/GlassCard";
 
 export default function SettingsPage() {
   const { data: me } = useCurrentUser();
+  const queryClient = useQueryClient();
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+
+  useEffect(() => {
+    setUsername(me?.username || "");
+    setEmail(me?.email || "");
+    setPhone(me?.phone || "");
+  }, [me]);
+
+  const updateProfileMutation = useMutation({
+    mutationFn: api.auth.updateProfile,
+  });
 
   const changePasswordMutation = useMutation({
     mutationFn: api.auth.changePassword,
@@ -41,6 +56,25 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setProfileSaving(true);
+      await updateProfileMutation.mutateAsync({
+        username: username.trim(),
+        email: email.trim(),
+        phone: phone.trim() || null,
+      });
+      toast.success("Profile updated");
+      await queryClient.invalidateQueries({ queryKey: ["me"] });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Request failed";
+      toast.error(message);
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-lg mx-auto">
       <div>
@@ -53,7 +87,7 @@ export default function SettingsPage() {
           <h3 className="text-lg font-display font-semibold text-foreground">Profile</h3>
         </div>
         <div>
-          <div className="space-y-4">
+          <form onSubmit={handleSaveProfile} className="space-y-4">
             <div className="flex items-center gap-4 mb-4 group cursor-default">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground text-xl font-bold group-hover:animate-pulse-glow transition-all">
                 {initials}
@@ -63,10 +97,13 @@ export default function SettingsPage() {
                 <p className="text-sm text-muted-foreground">{me?.email || ""}</p>
               </div>
             </div>
-            <div><Label>Username</Label><Input value={me?.username || ""} readOnly /></div>
-            <div><Label>Email</Label><Input type="email" value={me?.email || ""} readOnly /></div>
-            <div><Label>Phone</Label><Input type="tel" value={me?.phone || ""} readOnly /></div>
-          </div>
+            <div><Label>Username</Label><Input value={username} onChange={(e) => setUsername(e.target.value)} required /></div>
+            <div><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+            <div><Label>Phone</Label><Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Optional" /></div>
+            <Button type="submit" disabled={profileSaving || updateProfileMutation.isPending}>
+              {profileSaving || updateProfileMutation.isPending ? "Saving..." : "Save Profile"}
+            </Button>
+          </form>
         </div>
       </GlassCard>
 

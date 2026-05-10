@@ -122,6 +122,77 @@ const getMe = async (req, res) => {
   }
 };
 
+// PUT /api/auth/profile
+const updateProfile = async (req, res) => {
+  const { username, email, phone } = req.body;
+
+  if (username === undefined && email === undefined && phone === undefined) {
+    return res.status(400).json({ success: false, message: 'At least one profile field is required.' });
+  }
+
+  try {
+    const pool = await getPool();
+    const current = await pool.request()
+      .input('user_id', sql.Int, req.user.user_id)
+      .query('SELECT user_id, username, email, phone FROM Users WHERE user_id = @user_id');
+
+    if (current.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const existingUser = current.recordset[0];
+    const nextUsername = username !== undefined ? username.trim() : existingUser.username;
+    const nextEmail = email !== undefined ? email.trim() : existingUser.email;
+    const nextPhone = phone !== undefined ? (phone ? phone.trim() : null) : existingUser.phone;
+
+    if (!nextUsername || !nextEmail) {
+      return res.status(400).json({ success: false, message: 'Username and email cannot be empty.' });
+    }
+
+    const conflict = await pool.request()
+      .input('user_id', sql.Int, req.user.user_id)
+      .input('username', sql.VarChar, nextUsername)
+      .input('email', sql.VarChar, nextEmail)
+      .query(`
+        SELECT user_id
+        FROM Users
+        WHERE (username = @username OR email = @email)
+          AND user_id <> @user_id
+      `);
+
+    if (conflict.recordset.length > 0) {
+      return res.status(409).json({ success: false, message: 'Username or email already taken.' });
+    }
+
+    await pool.request()
+      .input('user_id', sql.Int, req.user.user_id)
+      .input('username', sql.VarChar, nextUsername)
+      .input('email', sql.VarChar, nextEmail)
+      .input('phone', sql.VarChar, nextPhone)
+      .query(`
+        UPDATE Users
+        SET username = @username,
+            email = @email,
+            phone = @phone
+        WHERE user_id = @user_id
+      `);
+
+    const updated = await pool.request()
+      .input('user_id', sql.Int, req.user.user_id)
+      .query(`
+        SELECT u.user_id, u.username, u.email, u.phone, u.created_at,
+               w.balance, w.currency
+        FROM Users u
+        LEFT JOIN Wallets w ON u.user_id = w.user_id
+        WHERE u.user_id = @user_id
+      `);
+
+    res.json({ success: true, message: 'Profile updated successfully.', data: updated.recordset[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // PUT /api/auth/change-password
 const changePassword = async (req, res) => {
   const { current_password, new_password } = req.body;
@@ -153,4 +224,4 @@ const changePassword = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getMe, changePassword };
+module.exports = { register, login, getMe, updateProfile, changePassword };

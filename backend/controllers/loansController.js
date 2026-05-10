@@ -74,11 +74,13 @@ const approveLoan = async (req, res) => {
       .input('amount', sql.Decimal(12, 2), loan.amount)
       .input('loan_id', sql.Int, loan_id)
       .query(`
+        BEGIN TRAN;
         UPDATE Wallets SET balance = balance - @amount WHERE user_id = @lender_id;
         UPDATE Wallets SET balance = balance + @amount WHERE user_id = @borrower_id;
         UPDATE Loans SET status = 'active' WHERE loan_id = @loan_id;
         INSERT INTO Transactions (sender_id, receiver_id, amount, type, status, note)
         VALUES (@lender_id, @borrower_id, @amount, 'loan', 'completed', 'Loan approved');
+        COMMIT TRAN;
       `);
 
     res.json({ success: true, message: 'Loan approved and funds transferred.' });
@@ -132,11 +134,13 @@ const repayLoan = async (req, res) => {
       .input('new_repaid', sql.Decimal(12, 2), newRepaid)
       .input('new_status', sql.VarChar, newStatus)
       .query(`
+        BEGIN TRAN;
         UPDATE Wallets SET balance = balance - @amount WHERE user_id = @borrower_id;
         UPDATE Wallets SET balance = balance + @amount WHERE user_id = @lender_id;
         UPDATE Loans SET amount_repaid = @new_repaid, status = @new_status WHERE loan_id = @loan_id;
         INSERT INTO Transactions (sender_id, receiver_id, amount, type, status, note)
         VALUES (@borrower_id, @lender_id, @amount, 'loan_repayment', 'completed', 'Loan repayment');
+        COMMIT TRAN;
       `);
 
     res.json({ success: true, message: `Repaid $${amount}. Status: ${newStatus}.` });

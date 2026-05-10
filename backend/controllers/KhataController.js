@@ -312,7 +312,7 @@ const contribute = async (req, res) => {
           `Khata contribution — Group ${groupId}, Cycle ${cycleNumber}`)
         .query(`
           INSERT INTO Transactions (sender_id, receiver_id, amount, type, status, note)
-          VALUES (@sender_id, @receiver_id, @amount, 'transfer', 'completed', @note)
+          VALUES (@sender_id, @receiver_id, @amount, 'khata_contribution', 'completed', @note)
         `);
 
       await transaction.commit();

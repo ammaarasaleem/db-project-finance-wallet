@@ -104,11 +104,13 @@ const payMyShare = async (req, res) => {
       .input('creator_id', sql.Int, creator_id)
       .input('amount', sql.Decimal(12, 2), part.amount_owed)
       .query(`
+        BEGIN TRAN;
         UPDATE Wallets SET balance = balance - @amount WHERE user_id = @user_id;
         UPDATE Wallets SET balance = balance + @amount WHERE user_id = @creator_id;
         INSERT INTO Transactions (sender_id, receiver_id, amount, type, status, note)
         OUTPUT INSERTED.transaction_id
         VALUES (@user_id, @creator_id, @amount, 'bill_split', 'completed', 'Bill split payment');
+        COMMIT TRAN;
       `);
 
     const transaction_id = txRes.recordset[0].transaction_id;
