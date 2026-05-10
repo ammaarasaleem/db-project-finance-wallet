@@ -47,7 +47,7 @@ CREATE TABLE Transactions (
     receiver_id      INT             NOT NULL,
     amount           DECIMAL(12, 2)  NOT NULL CHECK (amount > 0),
     type             VARCHAR(20)     NOT NULL
-                                     CHECK (type IN ('transfer','bill_split','loan','loan_repayment')),
+                                     CHECK (type IN ('transfer','bill_split','loan','loan_repayment','deposit','khata_contribution')),
     status           VARCHAR(50)     NOT NULL DEFAULT 'pending'
                                      CHECK (status IN ('pending','completed','failed','cancelled')),
     note             VARCHAR(255),

@@ -48,6 +48,11 @@ export const api = {
       }),
     me: () =>
       request<{ user_id: number; username: string; email: string; phone?: string; balance?: number; currency?: string }>("/auth/me"),
+    updateProfile: (payload: { username: string; email: string; phone?: string | null }) =>
+      request<{ user_id: number; username: string; email: string; phone?: string | null; balance?: number; currency?: string }>("/auth/profile", {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      }),
     changePassword: (payload: { current_password: string; new_password: string }) =>
       request<null>("/auth/change-password", {
         method: "PUT",
