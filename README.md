@@ -1,3 +1,6 @@
+#FinTrack-Finance Wallet Application
+A full-stack finance management web application for peer-to-peer transactions, bill splitting, loan tracking, saving goals, and rotating savings groups.
+
 # Sample Project – Setup Guide
 
 Follow the steps below to run the project on your system.
