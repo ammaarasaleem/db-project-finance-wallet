@@ -1,6 +1,20 @@
 # FinTrack — Finance Wallet Application
 
-> A full-stack finance management web application for peer-to-peer transactions, bill splitting, loan tracking, saving goals, and rotating savings groups.
+ A full-stack finance management web application for peer-to-peer transactions, bill splitting, loan tracking, saving goals, and rotating savings groups.
+
+ ## Features
+
+| Feature | Description |
+|---------|-------------|
+| **User Authentication** | JWT-based registration and login with bcrypt password hashing |
+| **Digital Wallet** | Deposit funds and transfer money to other users by username |
+| **Transaction History** | Filterable, paginated history of all wallet activity |
+| **Bill Splits** | Create bills, assign participant shares, track paid/unpaid status |
+| **Peer Loans** | Request, approve, reject, and repay loans between users |
+| **Saving Vaults** | Personal savings goals with automatic completion detection |
+| **Khata Groups** | Rotating savings committee system with cycle-based contributions |
+| **Financial Overview** | Dashboard showing salary, expenses, disposable income, and loan summary |
+| **Friend Management** | Send, accept, and manage friend connections |
 
 
 # Sample Project – Setup Guide
